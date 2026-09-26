@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.env.*
+node_modules/
+__pycache__/
+private/
+recordings-raw/
+*.key
+*.pem
+dist/
+coverage/
+.vite/

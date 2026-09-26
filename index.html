@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Appliance Latent Space</title>
+    <meta
+      name="description"
+      content="Suzy Easton’s programmable audiovisual instrument. A public build heading into Basecamp, Vancouver."
+    />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/ui/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="masthead">
+        <div class="masthead__identity">
+          <h1>The Appliance Latent Space</h1>
+          <p class="masthead__sub">
+            Suzy Easton · programmable sound + vision · prototype 0.1
+          </p>
+        </div>
+
+        <div class="transport" role="group" aria-label="Transport">
+          <button id="start" class="btn btn--start" type="button">Start</button>
+          <button id="stop" class="btn" type="button" disabled>Stop</button>
+          <button id="kill" class="btn btn--kill" type="button" disabled title="Immediate silence">
+            Kill
+          </button>
+
+          <label class="fader" for="master">
+            <span class="fader__label">master</span>
+            <input id="master" type="range" min="0" max="1" step="0.01" value="0.5" />
+            <output id="master-readout" for="master">0.50</output>
+          </label>
+        </div>
+      </header>
+
+      <aside class="build-context" aria-label="About this build">
+        <p><strong>An instrument that fits in a backpack.</strong> Write the music. Play the code. Watch it move.</p>
+        <p>Public hackathon build, heading into <a href="https://basecampyvr.ca/" target="_blank" rel="noopener noreferrer">Basecamp</a>,
+          the creator residency at Jericho Beach, Vancouver.</p>
+        <nav aria-label="Project links"><a href="https://github.com/suzyeaston/appliance-latent-space-live" target="_blank" rel="noopener noreferrer">Follow the build on GitHub</a>
+          <a href="https://suzyeaston.ca/" target="_blank" rel="noopener noreferrer">Suzy Easton</a></nav>
+      </aside>
+
+      <p id="audio-status" class="audio-status" role="status">
+        Audio is not running. Nothing will sound until you press Start.
+      </p>
+
+      <section class="stage" aria-label="Visualisation">
+        <canvas id="stage" aria-label="A moving picture of the pattern: horizontal is position in the loop, vertical is pitch, colour is voice."></canvas>
+        <div class="stage__readout">
+          <span id="position-readout">bar — / —</span>
+          <span id="playing-readout">nothing playing</span>
+        </div>
+      </section>
+
+      <main class="panels">
+        <section class="panel panel--editor" aria-label="Pattern">
+          <div class="panel__head">
+            <h2>Pattern</h2>
+            <span id="pattern-state" class="tag tag--quiet">not yet playing</span>
+          </div>
+
+          <textarea
+            id="editor"
+            class="editor"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            aria-describedby="editor-help"
+          ></textarea>
+
+          <p id="editor-help" class="hint">
+            Valid edits are applied at the next bar line while playing. Invalid edits leave the
+            last valid pattern running. <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Enter</kbd> queues
+            immediately.
+          </p>
+
+          <div id="diagnostics" class="diagnostics" role="status" aria-live="polite"></div>
+
+          <div class="row">
+            <span class="row__label">examples</span>
+            <div id="examples" class="row__items"></div>
+          </div>
+        </section>
+
+        <div class="panel-stack">
+          <section class="panel" aria-label="Instrument controls">
+            <div class="panel__head">
+              <h2>Controls</h2>
+              <span class="tag tag--quiet" id="control-map-version"></span>
+            </div>
+            <p class="hint">
+              The shared control vocabulary, copied from the suzyeastonca control map. Anything
+              disabled below has nothing behind it in this prototype.
+            </p>
+            <div id="controls"></div>
+
+            <fieldset class="group">
+              <legend>view</legend>
+              <label class="fader fader--wide" for="intensity">
+                <span class="fader__label">visual intensity</span>
+                <input id="intensity" type="range" min="0" max="1" step="0.01" value="0.7" />
+                <output id="intensity-readout" for="intensity">0.70</output>
+              </label>
+              <label class="check">
+                <input id="reduced-motion" type="checkbox" />
+                <span>Reduce motion (no drift, no wobble, smaller pulses)</span>
+              </label>
+              <label class="check">
+                <input id="performance-mode" type="checkbox" />
+                <span>Performance mode: control-map keys are live outside the editor</span>
+              </label>
+              <p id="key-hints" class="hint hint--keys"></p>
+            </fieldset>
+          </section>
+
+          <section class="panel" aria-label="Proposals">
+            <div class="panel__head">
+              <h2>Proposals</h2>
+              <span class="tag tag--quiet">not AI</span>
+            </div>
+            <p class="hint" id="provider-description"></p>
+            <div class="row">
+              <button id="propose" class="btn btn--small" type="button">Propose variation</button>
+              <span id="proposal-state" class="tag tag--quiet">no proposal</span>
+            </div>
+            <div id="proposal" class="proposal" hidden>
+              <h3 id="proposal-label"></h3>
+              <ul id="proposal-notes"></ul>
+              <pre id="proposal-preview" class="proposal__preview"></pre>
+              <div class="row">
+                <button id="audition" class="btn btn--small" type="button">Audition</button>
+                <button id="accept" class="btn btn--small" type="button">Accept</button>
+                <button id="discard" class="btn btn--small btn--ghost" type="button">Discard</button>
+              </div>
+            </div>
+            <div class="row">
+              <button id="revert" class="btn btn--small btn--ghost" type="button" hidden>
+                Revert to previous pattern
+              </button>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="Project">
+            <div class="panel__head">
+              <h2>Project</h2>
+              <span id="save-state" class="tag tag--quiet">not saved yet</span>
+            </div>
+            <label class="field" for="title">
+              <span>title</span>
+              <input id="title" type="text" maxlength="120" value="Untitled" />
+            </label>
+            <div class="row">
+              <button id="save" class="btn btn--small" type="button">Save now</button>
+              <button id="export" class="btn btn--small" type="button">Export JSON</button>
+              <button id="import" class="btn btn--small" type="button">Import JSON</button>
+              <button id="reset" class="btn btn--small btn--ghost" type="button">Reset to example</button>
+              <input id="import-file" type="file" accept="application/json,.json" hidden />
+            </div>
+            <p id="project-message" class="hint" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+      </main>
+
+      <footer class="colophon">
+        <p>
+          After this page loads, the instrument runs in this tab. Sounds are synthesised locally;
+          your patterns are not uploaded. No AI model is running. Export JSON to keep a portable copy of your work. <code>latent x</code>, <code>latent y</code> and
+          <code>neural mix</code> are part of the shared vocabulary but are disabled here because
+          there is no latent space behind them yet.
+        </p>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

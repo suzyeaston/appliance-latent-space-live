@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Offline audio harness</title>
+  </head>
+  <body>
+    <script type="module">
+      import { runAudioChecks } from './checks.ts';
+      window.__audioChecks = runAudioChecks()
+        .then((report) => {
+          window.__audioReport = report;
+          return report;
+        })
+        .catch((error) => {
+          const report = { ok: false, checks: [], error: String(error && error.stack ? error.stack : error) };
+          window.__audioReport = report;
+          return report;
+        });
+    </script>
+  </body>
+</html>
