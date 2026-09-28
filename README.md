@@ -40,13 +40,15 @@ The app downloads its static files on page load, then synthesizes and stores pat
 
 The downloadable setup creates a new public repository with fresh history from the reviewed snapshot. It does not publish the original private repository's commits or local unpushed work.
 
-After editing this public checkout, review and commit the files you intend to publish. Then:
+After editing this public checkout, review and commit the files you intend to publish, then push `main`. GitHub Actions (`.github/workflows/pages.yml`) installs dependencies, runs the tests and `npm run build`, and publishes the `dist` directory to GitHub Pages. The WordPress iframe keeps using https://suzyeaston.github.io/appliance-latent-space-live/.
 
-```bash
-npm run deploy
-```
+`npm run deploy` is the local gate: a clean `main` branch, tests, a production build, and a normal push of `main`. It does not force-push. While Pages is still set to the old `gh-pages` branch, that command also publishes `dist` there so the live site updates. After the one-time source switch below, Actions publishes on every push to `main` and the script stops copying the build. Read [the launch guide](docs/launch.md).
 
-Deployment requires a clean main branch. It runs tests and builds, pushes main without force, commits only dist output to gh-pages, and requests GitHub Pages publication. Read [the launch guide](docs/launch.md).
+One-time repository setting, if Pages is still deploying a branch:
+
+https://github.com/suzyeaston/appliance-latent-space-live/settings/pages
+
+**Build and deployment → Source: GitHub Actions**
 
 `private: true` in package.json prevents accidental npm publication; it does not control GitHub visibility.
 
