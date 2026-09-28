@@ -127,6 +127,7 @@ export function parsePattern(source: string): ParseResult {
   const lines = source.split(/\r?\n/);
 
   let tempo: number | null = null;
+  let swing = 0;
   let bars: number | null = null;
   let grid: number | null = null;
   // Tracked separately so a header that is present but wrong reports one clear error rather
@@ -186,6 +187,13 @@ export function parsePattern(source: string): ParseResult {
     const keyword = head.text.toLowerCase();
 
     switch (keyword) {
+      case 'swing': {
+        if (seenDirectives.has('swing')) fail(lineNumber, head, 'swing is set more than once.');
+        seenDirectives.add('swing');
+        const value = readScalar(lineNumber, tokens, 'swing', 0, 0.45, false);
+        if (value !== null) swing = value;
+        return;
+      }
       case 'tempo': {
         if (seenDirectives.has('tempo')) fail(lineNumber, head, 'tempo is set more than once.');
         seenDirectives.add('tempo');
@@ -229,7 +237,7 @@ export function parsePattern(source: string): ParseResult {
           lineNumber,
           head,
           `Unknown instruction "${head.text}".`,
-          'Expected tempo, bars, grid, voice, wave, level, octave, mute or play.',
+          'Expected tempo, swing, bars, grid, voice, wave, level, octave, mute or play.',
         );
     }
   });
@@ -269,6 +277,7 @@ export function parsePattern(source: string): ParseResult {
 
   const score = buildScore(source, tempo, bars, grid, drafts, errors, warnings);
   if (errors.length || !score) return { ok: false, errors: sortIssues(errors), warnings };
+  score.swing = swing;
   return { ok: true, score, warnings };
 }
 

@@ -47,7 +47,12 @@ export class ControlSurface {
       const fieldset = make('fieldset', { className: 'group' });
       fieldset.appendChild(make('legend', { text: group.label }));
       controls.forEach((control) => fieldset.appendChild(this.buildControl(control)));
-      container.appendChild(fieldset);
+      if (group.id === 'latent') {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = 'Future sound model · not connected';
+        details.append(summary, fieldset); container.appendChild(details);
+      } else container.appendChild(fieldset);
     });
   }
 
@@ -99,6 +104,7 @@ export class ControlSurface {
           max: String(control.range[1]),
           step: String(control.keyboard?.step ?? 0.01),
           'data-control': control.id,
+          'aria-label': control.label,
           'aria-describedby': describedById,
         },
       }) as HTMLInputElement;

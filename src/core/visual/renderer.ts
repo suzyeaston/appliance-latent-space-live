@@ -18,6 +18,7 @@
  * note is still exactly where the music put it. The analyser only moves brightness and drift.
  */
 
+import { DEFAULT_STYLE, type Style } from '../learning/visualModel';
 import type { PercHit, VoiceKind } from '../pattern/types';
 
 export interface VisualNote {
@@ -116,6 +117,9 @@ export class Visualizer {
   private readonly now: () => number;
   private readonly energy: () => number;
 
+  private style: Style = { ...DEFAULT_STYLE };
+  setStyle(style: Style): void { this.style = { ...style }; }
+
   private notes: TrackedNote[] = [];
   private anchor: TimelineAnchor | null = null;
   private frame = 0;
@@ -212,22 +216,60 @@ export class Visualizer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
     // Persistence: `memory` at 0 wipes almost every frame, at 1 it barely fades at all.
-    const fade = 0.34 - this.memory * 0.315;
+    const fade = 0.30 - (this.memory * 0.3 + this.style.trails * 0.7) * 0.275;
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = `rgba(5, 5, 12, ${fade.toFixed(3)})`;
     ctx.fillRect(0, 0, this.width, this.height);
 
-    this.drawFrameFurniture(energy);
+    if (this.style.orbit < 0.15) this.drawFrameFurniture(energy);
 
     const phase = this.loopPhase(now);
     this.prune(now);
 
     ctx.globalCompositeOperation = 'lighter';
-    this.notes.forEach((note) => this.drawNote(note, now, energy));
+    if (this.style.orbit < 0.15) this.notes.forEach((note) => this.drawNote(note, now, energy));
+    else this.drawConstellation(now, energy);
     ctx.globalCompositeOperation = 'source-over';
 
-    if (phase !== null) this.drawPlayhead(phase, energy);
+    if (phase !== null && this.style.orbit < 0.15) this.drawPlayhead(phase, energy);
     this.drawImperfection(now, energy);
+  }
+
+  /** Geometry follows actual scheduled notes. Learned style changes the drawing parameters. */
+  private drawConstellation(now: number, energy: number): void {
+    const ctx = this.ctx;
+    const active = this.notes.filter(n => now >= n.time && now < n.time + n.duration + 0.75).slice(-96);
+    const cx = this.width / 2, cy = this.height / 2;
+    const radius = Math.min(this.width, this.height) * (0.16 + this.style.spread * 0.26);
+    const movement = this.reducedMotion ? 0 : this.style.motion;
+    // A quiet outline makes the instrument visible before the first note, without fake audio activity.
+    ctx.strokeStyle = `hsla(${this.style.hue}, 65%, 65%, .10)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(cx, cy, radius * 1.35, radius, -.25, 0, Math.PI * 2); ctx.stroke();
+    let previous: {x: number; y: number} | null = null;
+    for (const note of active) {
+      const age = now - note.time;
+      const fade = Math.max(0, 1 - Math.max(0, age - note.duration) / .75);
+      const pitch = note.pitches[0] ?? (note.hit === 'kick' ? 32 : note.hit === 'snare' ? 58 : 82);
+      const angle = note.loopStep / note.totalSteps * Math.PI * 2 - Math.PI / 2 + now * movement * .09;
+      const r = radius * (.35 + Math.max(0, Math.min(1, (pitch - 12) / 96)));
+      const orbitX = cx + Math.cos(angle) * r * (1.25 + note.voice * .06);
+      const orbitY = cy + Math.sin(angle) * r;
+      const linearX = this.width * (.08 + .84 * note.loopStep / note.totalSteps);
+      const linearY = this.height * (.85 - .7 * (pitch - 12) / 96);
+      const blend = this.style.orbit;
+      const x = linearX * (1 - blend) + orbitX * blend;
+      const y = linearY * (1 - blend) + orbitY * blend;
+      const hue = (this.style.hue + note.voice * 28) % 360;
+      const alpha = fade * (.20 + note.velocity * .45) * (.25 + this.intensity * .75);
+      ctx.strokeStyle = `hsla(${hue}, 85%, 72%, ${alpha * .5})`;
+      if (previous) { ctx.beginPath(); ctx.moveTo(previous.x, previous.y); ctx.quadraticCurveTo(cx, cy, x, y); ctx.stroke(); }
+      ctx.fillStyle = `hsla(${hue}, 90%, 78%, ${alpha})`;
+      const size = (2 + note.velocity * 5 + energy * 8) * (.5 + this.intensity * .5);
+      ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,size + 4 + (this.reducedMotion ? 0 : Math.min(age,1) * 22 * movement),0,Math.PI*2); ctx.stroke();
+      previous = {x,y};
+    }
   }
 
   private loopPhase(now: number): number | null {
@@ -271,7 +313,7 @@ export class Visualizer {
     const x0 = note.loopStep * stepWidth;
     const fullWidth = Math.max(stepWidth * 0.5, note.steps * stepWidth);
     const drawnWidth = Math.max(2, fullWidth * progress);
-    const hue = voiceHue(note.kind, note.voice);
+    const hue = (this.style.hue + note.voice * 28) % 360;
     const alpha = (0.32 + note.velocity * 0.5) * (0.55 + this.intensity * 0.45);
     const glow = 0.5 + energy * 0.5;
 

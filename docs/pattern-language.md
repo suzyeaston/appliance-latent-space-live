@@ -65,3 +65,7 @@ An invalid edit does not replace anything. The last valid pattern keeps playing,
 | Service Elevator | the default. Two bars of sixteenths. Keys, bass and drums all working. |
 | Cold Start | long tones, a slow bass drift, almost no percussion. Turn memory up. |
 | Element Failure | a twelve-step grid, so accents do not land on a square bar. Room for destruction. |
+
+## Swing
+
+Optional `swing 0.2` delays odd grid subdivisions by 20% of one step. Range 0–0.45; default zero. Bar length is unchanged. On odd grids the final unpaired subdivision stays straight.
