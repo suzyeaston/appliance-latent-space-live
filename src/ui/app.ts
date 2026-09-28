@@ -26,6 +26,9 @@ import { ProjectStore } from '../core/project/storage';
 import { variationProvider } from '../core/proposals/variation';
 import type { Proposal } from '../core/proposals/types';
 import { Sequencer, type BarEvent, type ScheduledNote } from '../core/sequencer';
+import { DJ } from './dj';
+import { Studio } from './studio';
+import { formatScore } from '../core/pattern/format';
 import { Visualizer } from '../core/visual/renderer';
 import { ControlSurface } from './controlSurface';
 import { clear, el, formatValue, make } from './dom';
@@ -43,6 +46,9 @@ export class App {
   private readonly surface: ControlSurface;
   private readonly visualizer: Visualizer;
   private readonly sequencer: Sequencer;
+
+  private studio?: Studio;
+  private dj?: DJ;
 
   private context: AudioContext | null = null;
   private engine: AudioEngine | null = null;
@@ -119,6 +125,17 @@ export class App {
 
     this.sequencer = new Sequencer(this.lastValidScore, {
       now: () => this.audioNow(),
+      beforeBar: () => {
+        const text = this.dj?.nextTimelineBar();
+        if (!text) return null;
+        const parsed = parsePattern(text);
+        if (!parsed.ok) { this.dj?.stopTimeline(); return null; }
+        this.editor.value = text;
+        this.lastValidScore = parsed.score;
+        this.activeSource = text;
+        this.queueAutosave();
+        return parsed.score;
+      },
       onNotes: (notes) => this.handleNotes(notes),
       onBar: (bar) => this.handleBar(bar),
     });
@@ -168,6 +185,26 @@ export class App {
 
     this.savedSignature = this.signature();
     this.validate({ queue: false });
+    this.studio = new Studio({
+      score: () => this.sequencer.isRunning ? this.sequencer.activeScore : this.lastValidScore,
+      controls: () => this.controlState,
+      style: style => this.visualizer.setStyle(style),
+      edit: (tempo, voice, level) => {
+        const parsed = parsePattern(this.editor.value);
+        if (!parsed.ok) return false;
+        if (tempo !== null) parsed.score.tempo = tempo;
+        if (voice !== null && level !== null && parsed.score.voices[voice]) parsed.score.voices[voice]!.level = level;
+        this.setEditorValue(formatScore(parsed.score));
+        return true;
+      },
+    });
+    this.dj = new DJ({source: () => this.editor.value, load: pattern => this.setEditorValue(pattern), running: () => this.sequencer.isRunning, start: async () => {
+      this.controlState['freeze'] = 0;
+      this.surface.reflect('freeze', 0);
+      this.sequencer.setFrozen(false);
+      await this.start();
+      return this.sequencer.isRunning;
+    }});
     this.visualizer.start();
     window.addEventListener('resize', () => this.visualizer.resize());
     window.addEventListener('beforeunload', (event) => {
@@ -224,6 +261,7 @@ export class App {
   }
 
   private stop(): void {
+    this.dj?.stopTimeline(true);
     this.sequencer.stop();
     if (this.schedulerTimer) {
       window.clearInterval(this.schedulerTimer);
@@ -244,6 +282,7 @@ export class App {
 
   /** kill: everything stops, right now. */
   private killAll(): void {
+    this.dj?.stopTimeline(true);
     this.engine?.kill();
     this.sequencer.stop();
     if (this.schedulerTimer) {
@@ -315,6 +354,7 @@ export class App {
   }
 
   private handleBar(bar: BarEvent): void {
+    this.studio?.refresh();
     const score = this.sequencer.activeScore;
     this.visualizer.setAnchor({
       time: bar.time,
@@ -339,6 +379,7 @@ export class App {
     if (controlStatus(event.id).state !== 'active') return;
     this.controlState[event.id] = event.value;
     this.surface.reflect(event.id, event.value);
+    this.studio?.refresh();
 
     switch (event.id) {
       case 'browning':
@@ -352,6 +393,7 @@ export class App {
         this.visualizer.setMemory(event.value);
         break;
       case 'freeze':
+        this.dj?.stopTimeline();
         this.sequencer.setFrozen(event.value >= 0.5);
         break;
       case 'plunge':
@@ -428,6 +470,7 @@ export class App {
 
   private wireEditor(): void {
     this.editor.addEventListener('input', () => {
+      this.dj?.stopTimeline();
       window.clearTimeout(this.editTimer);
       this.editTimer = window.setTimeout(() => this.validate({ queue: true }), EDIT_DEBOUNCE_MS);
       this.queueAutosave();
@@ -460,6 +503,7 @@ export class App {
 
     result.warnings.slice(0, 4).forEach((issue) => this.diagnostics.appendChild(this.issueRow(issue, 'warn')));
     this.lastValidScore = result.score;
+    this.studio?.refresh();
 
     if (!options.queue) {
       this.setPatternState(this.sequencer.isRunning ? 'playing' : 'idle');
@@ -528,6 +572,7 @@ export class App {
   }
 
   private setEditorValue(text: string): void {
+    this.dj?.stopTimeline();
     this.editor.value = text;
     window.clearTimeout(this.editTimer);
     this.validate({ queue: true });

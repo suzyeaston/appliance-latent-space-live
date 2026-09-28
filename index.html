@@ -17,7 +17,7 @@
         <div class="masthead__identity">
           <h1>The Appliance Latent Space</h1>
           <p class="masthead__sub">
-            Suzy Easton · programmable sound + vision · prototype 0.1
+            Suzy Easton · programmable sound + vision · personal instrument · timeline 0.4
           </p>
         </div>
 
@@ -36,33 +36,69 @@
         </div>
       </header>
 
-      <aside class="build-context" aria-label="About this build">
-        <p><strong>An instrument that fits in a backpack.</strong> Write the music. Play the code. Watch it move.</p>
-        <p>Public hackathon build, heading into <a href="https://basecampyvr.ca/" target="_blank" rel="noopener noreferrer">Basecamp</a>,
-          the creator residency at Jericho Beach, Vancouver.</p>
-        <nav aria-label="Project links"><a href="https://github.com/suzyeaston/appliance-latent-space-live" target="_blank" rel="noopener noreferrer">Follow the build on GitHub</a>
-          <a href="https://suzyeaston.ca/" target="_blank" rel="noopener noreferrer">Suzy Easton</a></nav>
-      </aside>
-
-      <p id="audio-status" class="audio-status" role="status">
-        Audio is not running. Nothing will sound until you press Start.
-      </p>
-
+      <section class="music-strip" aria-label="Music controls">
+        <div class="music-fields"><label>Key<select id="dj-root"><option value="0">C</option><option value="1">C♯ / D♭</option><option value="2">D</option><option value="3">D♯ / E♭</option><option value="4">E</option><option value="5">F</option><option value="6">F♯ / G♭</option><option value="7">G</option><option value="8">G♯ / A♭</option><option value="9" selected>A</option><option value="10">A♯ / B♭</option><option value="11">B</option></select></label>
+<label>Scale<select id="dj-scale"><option value="minor">Natural minor</option><option value="major">Major</option><option value="dorian">Dorian</option><option value="pentatonic">Minor pentatonic</option></select></label>
+<label class="tempo-field">Tempo <input id="quick-tempo" type="number" min="20" max="300" step="1" value="104" aria-label="Tempo in BPM" /> BPM</label>
+<label>Style<select id="dj-style"><option value="house">House</option><option value="broken">Broken beat</option><option value="dub">Dub</option><option value="ambient">Ambient</option><option value="electro">Electro</option></select></label>
+<label>Rhythm<select id="dj-rhythm"><option value="four">Four on the floor</option><option value="breaks">Breakbeat</option><option value="half">Half-time</option><option value="sparse">Sparse</option></select></label>
+<label>Density<input id="dj-density" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
+<label>Swing · straight → loose<input id="dj-swing" type="range" min="0" max="0.45" step="0.01" value="0.08" /></label></div>
+        <div class="row"><button id="dj-build" class="btn btn--start" type="button">Apply groove</button><button id="focus-stage" class="btn" type="button">Performance view</button><button id="dj-undo" class="btn" type="button" disabled>Undo DJ change</button><span class="hint">Key, scale and style shape a new groove when you press Apply.</span></div>
+        <p id="audio-status" class="audio-status" role="status">Press Start to hear the instrument.</p>
+        <p id="dj-status" role="status" aria-live="polite">Choose a key and groove. Tempo changes the current music; Apply groove creates a new phrase.</p>
+      </section>
       <section class="stage" aria-label="Visualisation">
-        <canvas id="stage" aria-label="A moving picture of the pattern: horizontal is position in the loop, vertical is pitch, colour is voice."></canvas>
+        <span id="visual-mode" class="stage-label">DESIGNED VISUALS · MANUAL</span>
+        <canvas id="stage" aria-label="A musical constellation: note pitch, rhythm and energy shape the drawing; your taught examples can shape its colours and geometry."></canvas>
         <div class="stage__readout">
           <span id="position-readout">bar — / —</span>
           <span id="playing-readout">nothing playing</span>
         </div>
       </section>
 
+      <section class="timeline panel" aria-label="Musical timeline">
+        <div class="panel__head"><h2>Your set</h2><span class="tag">8 BLOCKS · LOOPS IN ORDER</span></div>
+        <div class="row"><button id="timeline-add" class="btn" type="button">Add current phrase</button><button id="timeline-play" class="btn btn--start" type="button">Play timeline</button><button id="timeline-stop" class="btn" type="button" disabled>Stop chaining</button></div>
+        <p class="hint">Save your current phrase into a block, change the music, then add another. Each block plays its scene once. Empty blocks are skipped.</p>
+        <div id="timeline-blocks" class="timeline-blocks"></div>
+        <p id="timeline-status" role="status" aria-live="polite">Add your first phrase to start arranging.</p>
+        <details class="scene-library"><summary>Saved scenes, mixer &amp; more controls</summary>
+          <div id="voice-mixer" class="voice-mixer"></div><div class="row"><span class="row__label">Starting sketches</span><div id="examples" class="row__items"></div></div>
+          <div class="row"><button id="dj-drums" class="btn" type="button">Swap drums only</button><button id="dj-apply-swing" class="btn" type="button">Apply swing</button><button id="dj-down" class="btn" type="button">Transpose −1</button><button id="dj-up" class="btn" type="button">Transpose +1</button><button id="dj-breakdown" class="btn" type="button">Drum breakdown</button></div>
+          <label class="check"><input id="dj-keep-tempo" type="checkbox" checked /> Keep current tempo when launching scenes or playing the timeline</label>
+          <p class="hint">Manual phrase changes stop timeline chaining. Scene slots hold music, tempo and swing; effects and visual training are separate. Style sketches use authored rules, not learned AI.</p>
+          <div id="dj-scenes" class="scene-grid"></div>
+          <details><summary>Keep your set</summary><p>Set exports include saved scenes and your block order, not effects, visual libraries or audio recordings. Each visitor has a separate local set. Export to move it between browsers or keep a backup.</p><div class="row"><button id="dj-export" class="btn" type="button">Export set</button><label>Import set<input id="dj-import" type="file" accept=".json,application/json" /></label></div></details>
+        </details>
+      </section>
+      <section class="teaching panel" aria-label="Teach your visual instrument">
+        <div class="panel__head"><div><span class="eyebrow">02 / TEACH THE LIGHT</span><h2>A visual language, taught by you.</h2></div><span id="example-count" class="tag">0 taught · 0 trained</span></div>
+        <p>While a loop plays, design its look. Give that pairing a name and teach it. Change the music or tone controls and repeat with a different look. Three distinct examples unlock your model.</p>
+        <div class="look-controls">
+          <label>Colour <input id="look-hue" type="range" min="0" max="360" step="1" aria-label="Visual colour" /></label>
+          <label>Threads → orbit <input id="look-orbit" type="range" min="0" max="1" step="0.01" aria-label="Visual orbit" /></label>
+          <label>Intimate → expansive <input id="look-spread" type="range" min="0" max="1" step="0.01" aria-label="Visual spread" /></label>
+          <label>Movement <input id="look-motion" type="range" min="0" max="1" step="0.01" aria-label="Visual movement" /></label>
+          <label>Afterglow <input id="look-trails" type="range" min="0" max="1" step="0.01" aria-label="Visual afterglow" /></label>
+        </div>
+        <div class="row"><label>Study name <input id="look-name" maxlength="80" placeholder="e.g. saltwater / low bass" /></label><button id="teach-look" class="btn" type="button">Teach this pairing</button><button id="train-looks" class="btn btn--start" type="button">Train visual instrument</button></div>
+        <label class="check"><input id="use-learned" type="checkbox" /> Follow my trained examples</label>
+        <p id="learning-status" role="status" aria-live="polite"></p>
+        <details><summary>Your library &amp; how learning works</summary>
+          <p>This is local example-based regression, not a pretrained image generator. It learns a mapping between musical features (pitch, density, velocity, duration, percussion, tempo and tone settings) and the looks you choose. The drawing system is procedural; your examples teach its parameters. No examples are bundled and nothing is uploaded. Every visitor has a separate local library.</p>
+          <p>Export this library separately from your music project. Browser storage can be cleared or separated between the embedded and full-page versions. Your sound is still synthesized; a model trained on your recordings is a future stage.</p>
+          <div class="row"><button id="undo-look" class="btn" type="button">Undo last teaching</button><button id="export-looks" class="btn" type="button">Export visual library</button><label class="file-label">Import visual library <input id="import-looks" type="file" accept="application/json,.json" /></label></div>
+        </details>
+      </section>
       <main class="panels">
         <section class="panel panel--editor" aria-label="Pattern">
           <div class="panel__head">
-            <h2>Pattern</h2>
+            <h2>03 / Play the code</h2>
             <span id="pattern-state" class="tag tag--quiet">not yet playing</span>
           </div>
 
+          <p class="hint">Notes: <code>c4 e4 g4</code> · silence: <code>.</code> · hold: <code>_</code> · chord: <code>[c4 e4 g4]</code> · softer: <code>c4@0.4</code>. Musical controls rewrite formatted code; keep a JSON export if you want to preserve comments.</p>
           <textarea
             id="editor"
             class="editor"
@@ -70,6 +106,7 @@
             autocomplete="off"
             autocapitalize="off"
             autocorrect="off"
+            aria-label="Musical pattern code"
             aria-describedby="editor-help"
           ></textarea>
 
@@ -81,10 +118,7 @@
 
           <div id="diagnostics" class="diagnostics" role="status" aria-live="polite"></div>
 
-          <div class="row">
-            <span class="row__label">examples</span>
-            <div id="examples" class="row__items"></div>
-          </div>
+
         </section>
 
         <div class="panel-stack">
@@ -94,8 +128,7 @@
               <span class="tag tag--quiet" id="control-map-version"></span>
             </div>
             <p class="hint">
-              The shared control vocabulary, copied from the suzyeastonca control map. Anything
-              disabled below has nothing behind it in this prototype.
+              Browning opens the tone. Destruction adds grit. Memory leaves echoes. These same gestures will connect to the physical instrument.
             </p>
             <div id="controls"></div>
 
@@ -120,7 +153,7 @@
 
           <section class="panel" aria-label="Proposals">
             <div class="panel__head">
-              <h2>Proposals</h2>
+              <h2>Pattern experiments</h2>
               <span class="tag tag--quiet">not AI</span>
             </div>
             <p class="hint" id="provider-description"></p>
@@ -166,12 +199,16 @@
         </div>
       </main>
 
+      <aside class="build-context" aria-label="About this build">
+        <div class="eyebrow">SUZY EASTON / AN INSTRUMENT IN THE MAKING</div>
+        <h2>Your sound.<br>Your strange universe.</h2>
+        <p>Play a phrase. Sculpt its light. Teach the instrument what belongs together.</p>
+        <p class="hint">Building toward sound and vision learned from my own material. Today: a playable synth and a visual model you can teach with your own examples.</p>
+        <nav aria-label="Project links"><a href="https://basecampyvr.ca/" target="_blank" rel="noopener noreferrer">Building at Basecamp ↗</a><a href="https://github.com/suzyeaston/appliance-latent-space-live" target="_blank" rel="noopener noreferrer">Follow the instrument ↗</a><a href="https://suzyeaston.github.io/appliance-latent-space-live/" target="_blank" rel="noopener noreferrer">Open full instrument ↗</a></nav>
+      </aside>
       <footer class="colophon">
         <p>
-          After this page loads, the instrument runs in this tab. Sounds are synthesised locally;
-          your patterns are not uploaded. No AI model is running. Export JSON to keep a portable copy of your work. <code>latent x</code>, <code>latent y</code> and
-          <code>neural mix</code> are part of the shared vocabulary but are disabled here because
-          there is no latent space behind them yet.
+          After this page loads, the instrument runs in this tab. Sounds are synthesised locally; your patterns and visual examples are not uploaded. The optional visual model learns only from examples you teach or import. Sound-model training and neural audio are not implemented yet. Export your music project and visual library separately. Independent work by Suzy Easton; Basecamp is credited as the residency, not a sponsor.
         </p>
       </footer>
     </div>

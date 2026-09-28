@@ -75,6 +75,7 @@ export function formatScore(score: Score, header?: string): string {
   const head = [
     ...(header ? header.split('\n').map((line) => (line.startsWith('#') ? line : `# ${line}`)) : []),
     `tempo ${Number(score.tempo.toFixed(2))}`,
+    ...((score.swing ?? 0) > 0 ? [`swing ${Number(score.swing!.toFixed(3))}`] : []),
     `bars ${score.bars}`,
     `grid ${score.grid}`,
   ];

@@ -32,6 +32,7 @@ export interface BarEvent {
 }
 
 export interface SequencerOptions {
+  beforeBar?: () => Score | null;
   now: () => number;
   onNotes: (notes: ScheduledNote[]) => void;
   onBar?: (bar: BarEvent) => void;
@@ -55,6 +56,7 @@ const DEFAULT_LOOKAHEAD = 0.25;
 const MAX_STEPS_PER_TICK = 256;
 
 export class Sequencer {
+  private readonly beforeBar: (() => Score | null) | undefined;
   private readonly now: () => number;
   private readonly onNotes: (notes: ScheduledNote[]) => void;
   private readonly onBar: ((bar: BarEvent) => void) | undefined;
@@ -73,6 +75,7 @@ export class Sequencer {
 
   constructor(score: Score, options: SequencerOptions) {
     this.score = score;
+    this.beforeBar = options.beforeBar;
     this.now = options.now;
     this.onNotes = options.onNotes;
     this.onBar = options.onBar;
@@ -172,6 +175,13 @@ export class Sequencer {
     const atBarLine = this.loopStep % grid === 0;
 
     if (atBarLine) {
+      const scene = this.beforeBar?.();
+      if (scene) {
+        this.pending = scene;
+        this.pendingGeneration = this.generation + 1;
+        // A timeline block always starts at its first bar.
+        this.loopStep = 0;
+      }
       if (this.pending) this.applyPending();
       this.onBar?.({
         time: this.nextStepTime,
@@ -185,12 +195,17 @@ export class Sequencer {
 
     const step = secondsPerStep(this.score.tempo, this.score.grid);
     const due = this.score.events.filter((event: NoteEvent) => event.step === this.loopStep);
+    // Delay odd subdivisions. On odd grids leave the final unpaired subdivision straight.
+    const delayAt = (position: number) => {
+      const local = position % this.score.grid;
+      return local % 2 === 1 ? (this.score.swing ?? 0) * step : 0;
+    };
     if (due.length) {
       this.onNotes(
         due.map((event) => ({
           event,
-          time: this.nextStepTime,
-          duration: event.steps * step,
+          time: this.nextStepTime + delayAt(this.loopStep),
+          duration: Math.max(step * .1, event.steps * step + delayAt(this.loopStep + event.steps) - delayAt(this.loopStep)),
           loopStep: this.loopStep,
           bar: Math.floor(this.loopStep / this.score.grid),
           generation: this.generation,

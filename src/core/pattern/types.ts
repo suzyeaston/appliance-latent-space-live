@@ -52,6 +52,8 @@ export interface Voice {
 }
 
 export interface Score {
+  /** Delay alternating subdivisions, 0 = straight, maximum 0.45. */
+  swing?: number;
   tempo: number;
   bars: number;
   grid: number;

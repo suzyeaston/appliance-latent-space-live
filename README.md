@@ -9,6 +9,14 @@ Public hackathon build, heading into [Basecamp](https://basecampyvr.ca/), a crea
 
 [Open the instrument](https://suzyeaston.github.io/appliance-latent-space-live/) (available after setup finishes and GitHub Pages completes its first build).
 
+## Timeline update
+
+Compact musical controls above the visual, with an eight-block playable arrangement below. Four saved scenes can be repeated and sequenced on bar boundaries. See [the timeline guide](docs/timeline.md).
+
+## Live set update
+
+Key and scale selection, five groove styles, four rhythm patterns, real sequencer swing, semitone transposition, drum-only changes and four saved scene slots. See [the DJ set guide](docs/dj-set.md).
+
 ## What is playable
 
 - Write patterns with notes, chords, rests, ties, velocity, tempo, and multiple voices.
@@ -17,7 +25,7 @@ Public hackathon build, heading into [Basecamp](https://basecampyvr.ca/), a crea
 - Browning, destruction, memory, freeze, plunge, capture and immediate Kill.
 - Local save and JSON import/export, plus deterministic variation proposals you can audition and accept.
 
-No AI model, MIDI connection or appliance hardware is running yet. The three latent/neural controls are disabled. Variation is a seeded musical transformation, not AI.
+The visual instrument can learn from your own paired musical/visual examples using local instance-based regression. It starts empty. No neural sound model, MIDI connection or appliance hardware is running yet. The three latent/neural sound controls remain disabled. Variation is a seeded musical transformation, not AI. See [the personal instrument guide](docs/personal-instrument.md).
 
 ## Run locally
 

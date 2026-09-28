@@ -1,3 +1,19 @@
+# Timeline 0.4
+
+See [timeline.md](timeline.md) for current layout, playback behavior, saved-set format and validation.
+
+# Layout update
+
+Moved the DJ music controls above the visualization in DOM order; moved project introduction below the workspace. Start/Stop and quick mixer remain at the top. Renamed the desk “Change the music.” No audio, scene or training behavior changed.
+
+# Live set 0.3
+
+See [dj-set.md](dj-set.md) for performance controls, scene storage, swing, tests and limitations.
+
+# Study 0.2 update
+
+See [personal-instrument.md](personal-instrument.md) for current implementation, training scope, and validation limitations. The sections below document the earlier 0.1 snapshot.
+
 # Technical handoff
 
 Prototype 0.1, received as the main-branch ZIP with archive commit c865a7185fb80a8a92b13886589067456a854315. The previous feature-branch status below was historical; current remote state was not accessible.
