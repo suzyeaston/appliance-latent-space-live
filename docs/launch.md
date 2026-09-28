@@ -10,13 +10,13 @@ Nothing is copied from other folders or the original private repository. The ZIP
 
 The default launch script publishes when run. `--local-only` prepares the checkout and opens the dev server without creating or changing a GitHub repository. `--no-open` suppresses app/browser launch. Re-running the launch script reuses its own managed folder, does not overwrite edits, and attempts to resume publication. An unrelated existing folder or remote is refused.
 
-If the script says GitHub Pages needs setup, open the printed settings URL, choose Deploy from a branch, gh-pages and /(root). Then rerun `npm run deploy` from the project folder. The repo can be public while the first Pages build is still pending. It can take several minutes. Check the printed Pages URL and GitHub Actions before sharing it as live.
+If the script says GitHub Pages needs setup, open the printed settings URL and set **Build and deployment → Source** to **GitHub Actions**. Then rerun `npm run deploy` from the project folder, or re-run the Deploy GitHub Pages workflow. The repo can be public while the first Pages build is still pending. It can take several minutes. Check the printed Pages URL and GitHub Actions before sharing it as live.
 
 ## Local development
 
 `npm run dev` serves only localhost. A successful setup leaves dependencies installed. Commit intended changes before `npm run deploy`. Deployment refuses dirty worktrees, unexpected remotes, private remotes, or a branch other than main. It never force-pushes. A conflicting remote change stops publication for review.
 
-GitHub Pages is a static build. There are no secrets or model endpoints in this project. `dist` is ignored on main and explicitly committed on gh-pages. The gh-pages checkout is temporary; each later deployment adds a regular commit, retaining previous deployed versions.
+GitHub Pages is a static build of `dist`. There are no secrets or model endpoints in this project. `dist` stays gitignored on `main`. Pushes to `main` run `.github/workflows/pages.yml`, which builds with Vite (`base: './'`, so asset URLs stay relative) and deploys that directory with the GitHub Pages actions. The WordPress iframe URL does not change between builds. Until the repository source is switched to GitHub Actions, `npm run deploy` still publishes the same `dist` output to the existing `gh-pages` branch.
 
 ## WordPress now
 
