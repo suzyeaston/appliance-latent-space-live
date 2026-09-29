@@ -64,6 +64,18 @@ https://github.com/suzyeaston/appliance-latent-space-live/settings/pages
 
 The app builds with relative asset URLs. Start by embedding the hosted instrument in a Custom HTML block on suzyeaston.ca using [wordpress-embed.html](docs/wordpress-embed.html). A later same-origin deployment can serve the dist folder under your domain. No changes to the live WordPress site are made by this setup.
 
+<!-- SUZY-AI-INTEGRATION -->
+
+## SUZY//AI
+
+The Appliance is an **actor/instrument** inside the broader [SUZY//AI](https://github.com/suzyeaston/suzy-ai) local intelligence architecture.
+
+The computer remains the compute/audio host. The physical toaster can become a Bluetooth control surface emitting the same logical control events as browser, keyboard, or MIDI input.
+
+Musical ideas can later be explicitly taught into SUZY//AI without making the instrument depend on AI for basic playback.
+
+See [`docs/suzy-ai-integration.md`](docs/suzy-ai-integration.md).
+
 ## Checks and roadmap
 
 ```bash
