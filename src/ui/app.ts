@@ -146,6 +146,7 @@ export class App {
     });
     this.visualizer.setMemory(this.controlState['memory'] ?? 0.25);
     this.visualizer.setIntensity(this.visualIntensity);
+    this.visualizer.setScore(this.lastValidScore);
 
     this.surface = new ControlSurface(el<HTMLDivElement>('controls'), {
       map: this.map,
@@ -356,6 +357,7 @@ export class App {
   private handleBar(bar: BarEvent): void {
     this.studio?.refresh();
     const score = this.sequencer.activeScore;
+    this.visualizer.setScore(score);
     this.visualizer.setAnchor({
       time: bar.time,
       bar: bar.bar,

@@ -1,22 +1,49 @@
 # Visual mapping
 
-The picture is the score, drawn against the audio clock. Frame rate does not move notes.
+The visualizer now has a **musical grammar**, not just a decorative particle system.
+The picture is still derived from scheduled musical events and the audio clock.
+
+## Default: musical field
+
+The circular field is a score wrapped around a clock:
 
 | music | picture |
 | --- | --- |
-| position in the loop | horizontal position. The left edge is bar 1, beat 1. |
-| pitch | vertical position. MIDI 24 sits at the floor of the pitch field, MIDI 96 at the ceiling. |
-| duration | trail length. A held note keeps being drawn for as long as it sounds. |
-| voice | colour. Tonal voices are icy blue, bass is violet, percussion is a paler blue, and a second voice of the same kind shifts hue slightly. |
-| attack | a ring at the start of the note, larger when the note is louder. |
-| percussion | its own lanes under the pitch field, in the order kick, snare, rim, hat. |
-| audio energy | brightness of what is already drawn, read from an analyser on the master output. |
-| memory | how slowly the frame fades, which is how long traces remain. The same control also sets the delay feedback. Both scopes are labelled on the control. |
+| position in the loop | angle around the field; 12 o'clock is the loop start |
+| pitch | radius; low notes live closer to the core, high notes farther out |
+| duration | arc length; held notes paint longer arcs |
+| velocity | stroke weight and node size |
+| voice | hue family, with bass and percussion offset from tonal voices |
+| percussion | semantic glyphs: kick circle, snare diamond, hat cross, rim stroke |
+| tempo | the central pulse is locked to the beat, so faster music visibly breathes faster |
+| swing | off-grid events receive a small angular delay that mirrors the musical timing |
+| audio energy | brightness only; energy never moves a note away from its scored position |
+| memory | how long traces remain, shared with delay feedback |
 
-Bar lines are faint verticals. A playhead marks where the loop is now.
+The visualizer also derives a **musical dialect**. A groove generated from the DJ controls
+keeps its explicit style tag when available; hand-authored patterns are classified from tempo,
+sustain, syncopation, percussion and four-on-the-floor strength.
 
-Energy never decides where a note is. A quiet note is still exactly where the pattern put it.
+- **House → clock**: strict radial beat geometry and four cardinal beat rays.
+- **Broken beat → fracture**: angular discontinuities and syncopated segmented arcs.
+- **Dub → echo**: several concentric copies, slow radial depth and long persistence.
+- **Ambient → nebula**: wide elliptical arcs, long sustain and soft contour motion.
+- **Electro → circuit**: polygonal geometry and harder stepped edges.
+- **Free → hybrid**: neutral score field when the music does not strongly match a preset.
 
-`visual intensity` scales pulse size, line thickness and the scanline drift. `Reduce motion` removes the drift and the pitch wobble and shrinks the attack rings. The operating system's reduced-motion setting starts the instrument in that mode on a fresh visit.
+The canvas labels its current dialect, BPM and mapping, so the visual language is legible while performing.
 
-There is no flashing. The brightest motion is the playhead and the attack rings.
+## Linear score mode
+
+The existing **Orbit** design control is no longer an on/off switch between "meaning" and "pretty".
+At almost zero it intentionally enters a linear score view:
+
+- x = loop time
+- y = pitch
+- trail length = duration
+- percussion = lanes below the pitch field
+
+Above that threshold, Orbit becomes a curvature/shape modifier inside the musical field.
+
+`visual intensity` scales brightness and stroke weight. `Reduce motion` removes decorative drift
+and shrinks pulse motion without changing note placement. There is no flashing.
