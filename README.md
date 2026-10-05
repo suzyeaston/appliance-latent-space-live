@@ -86,10 +86,11 @@ npm run test:ui    # in another terminal, Chrome UI smoke test
 
 Chrome is detected on macOS and Linux; CHROME_PATH can override its location.
 
-Next: play and tune the instrument, then add Web MIDI through the existing semantic events. Follow with toaster input and a genuinely implemented AI sound/proposal layer, retaining explicit audition/accept and a reliable Kill.
+Next: play and tune the instrument, verify Web MIDI with the Keystation Mini 32 MK3, then attach toaster input to the same semantic events. Follow with a genuinely implemented AI sound/proposal layer, retaining explicit audition/accept and a reliable Kill.
 
 - [Pattern language](docs/pattern-language.md)
 - [Visual mapping](docs/visual-mapping.md)
+- [MIDI bridge](docs/midi-bridge.md)
 - [Technical handoff](docs/handoff.md)
 - [Hackathon brief](docs/HACKATHON.md)
 

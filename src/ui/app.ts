@@ -31,6 +31,7 @@ import { Studio } from './studio';
 import { formatScore } from '../core/pattern/format';
 import { Visualizer } from '../core/visual/renderer';
 import { ControlSurface } from './controlSurface';
+import { WebMidiBridge } from '../core/midi/webMidi';
 import { clear, el, formatValue, make } from './dom';
 
 const SCHEDULER_INTERVAL_MS = 40;
@@ -46,6 +47,7 @@ export class App {
   private readonly surface: ControlSurface;
   private readonly visualizer: Visualizer;
   private readonly sequencer: Sequencer;
+  private midiBridge: WebMidiBridge | null = null;
 
   private studio?: Studio;
   private dj?: DJ;
@@ -161,6 +163,7 @@ export class App {
     this.wireProject();
     this.wireProposals();
     this.wireKeyboard();
+    this.wireMidi();
 
     el<HTMLSpanElement>('control-map-version').textContent = `map v${this.map.schemaVersion}`;
     el<HTMLParagraphElement>('provider-description').textContent =
@@ -660,6 +663,57 @@ export class App {
     });
 
     window.addEventListener('blur', () => this.heldKeys.clear());
+  }
+
+  private wireMidi(): void {
+    const button = el<HTMLButtonElement>('connect-midi');
+    const status = el<HTMLSpanElement>('midi-status');
+
+    this.midiBridge = new WebMidiBridge({
+      map: this.map,
+      state: this.controlState,
+      now: () => this.audioNow(),
+      onEvent: (event) => this.applyControlEvent(event),
+      onStatus: (next) => {
+        if (!next.supported) {
+          status.textContent = 'Web MIDI unavailable here. Use current Chrome on macOS.';
+          button.disabled = true;
+          return;
+        }
+
+        if (!next.connectedInputs) {
+          status.textContent = 'MIDI permission granted, but no input is connected.';
+          button.textContent = 'Reconnect MIDI';
+          return;
+        }
+
+        status.textContent = `connected: ${next.names.join(', ')}`;
+        button.textContent = 'Reconnect MIDI';
+      },
+    });
+
+    if (!this.midiBridge.supported) {
+      status.textContent = 'Web MIDI unavailable here. Use current Chrome on macOS.';
+      button.disabled = true;
+      return;
+    }
+
+    button.addEventListener('click', () => {
+      const bridge = this.midiBridge;
+      if (!bridge) return;
+
+      button.disabled = true;
+      status.textContent = 'requesting MIDI access…';
+
+      void bridge.connect()
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          status.textContent = `MIDI connection failed: ${message}`;
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    });
   }
 
   private isTyping(target: EventTarget | null): boolean {

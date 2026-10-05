@@ -147,6 +147,13 @@
                 <input id="performance-mode" type="checkbox" />
                 <span>Performance mode: control-map keys are live outside the editor</span>
               </label>
+              <div class="row">
+                <button id="connect-midi" class="btn btn--small" type="button">Connect MIDI</button>
+                <span id="midi-status" class="hint">MIDI not connected.</span>
+              </div>
+              <p class="hint">
+                MIDI uses the same semantic map as the future toaster: CC 21–26 and notes 36–39 on channel 1.
+              </p>
               <p id="key-hints" class="hint hint--keys"></p>
             </fieldset>
           </section>
