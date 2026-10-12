@@ -1,8 +1,8 @@
 /**
  * The audio engine.
  *
- * Native Web Audio only: oscillators, a noise buffer, one filter, one shaper, one delay and a
- * limiter. No samples, no libraries, nothing fetched at runtime.
+ * Native Web Audio synthesis, local vocal takes and bounded FX share a master limiter.
+ * Nothing is fetched at runtime; recordings only enter through explicit microphone capture.
  *
  * It takes a `BaseAudioContext`, not an `AudioContext`, so the whole graph can be rendered
  * offline in a test and measured. Nothing in here starts a context or resumes one; that is the
@@ -11,6 +11,7 @@
 
 import type { ScheduledNote } from '../sequencer';
 import type { PercHit, Voice } from '../pattern/types';
+import { spectrumTimbre, type VocalFX } from './vocals';
 import {
   AUDIO_LIMITS,
   browningCutoff,
@@ -33,6 +34,7 @@ interface ActiveNote {
   startsAt: number;
   /** Audio-clock time the note is expected to be finished. */
   endsAt: number;
+  cleanup?: () => void;
 }
 
 export interface AudioEngineOptions {
@@ -81,6 +83,9 @@ export class AudioEngine {
   private smoothedEnergy = 0;
   private tempo = 120;
   private disposed = false;
+  private gesture: { note: ActiveNote; oscillators: OscillatorNode[]; levels: GainNode[] } | null = null;
+  private readonly spectrum: Uint8Array<ArrayBuffer> | null;
+  private readonly vocalPaths = new Set<{tone:BiquadFilterNode;drive:WaveShaperNode;gain:GainNode;wet:GainNode[]}>();
 
   constructor(context: BaseAudioContext, options: AudioEngineOptions = {}) {
     this.context = context;
@@ -146,9 +151,11 @@ export class AudioEngine {
       this.analyser.smoothingTimeConstant = 0.6;
       this.limiter.connect(this.analyser);
       this.analysisBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize));
+      this.spectrum = new Uint8Array(new ArrayBuffer(this.analyser.frequencyBinCount));
     } else {
       this.analyser = null;
       this.analysisBuffer = null;
+      this.spectrum = null;
     }
 
     this.noise = context.createBuffer(1, Math.floor(context.sampleRate * 2), context.sampleRate);
@@ -182,7 +189,8 @@ export class AudioEngine {
   /** Immediate silence: no tails, no scheduled attacks left standing, empty delay line. */
   kill(): void {
     const now = this.context.currentTime;
-    this.active.forEach((note) => this.tearDown(note, now, 0.006));
+    this.endGesture();
+    this.active.forEach((note) => { this.tearDown(note, now, 0.006); note.cleanup?.(); });
     this.active.clear();
 
     const feedbackTarget = this.feedback.gain.value;
@@ -248,7 +256,90 @@ export class AudioEngine {
   }
 
   activeNoteCount(): number {
+    this.reap(this.context.currentTime);
     return this.active.size;
+  }
+
+  timbre(): { brightness: number; edge: number } {
+    this.reap(this.context.currentTime);
+    if (!this.analyser || !this.spectrum) return { brightness: 0, edge: 0 };
+    this.analyser.getByteFrequencyData(this.spectrum);
+    return spectrumTimbre(this.spectrum);
+  }
+
+  beginGesture(midi: number, timbre: number): void {
+    this.endGesture();
+    const now = this.context.currentTime;
+    this.reap(now);
+    if (this.active.size >= AUDIO_LIMITS.maxActiveNotes) this.steal(now);
+    const gain = this.context.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.22, now + 0.02);
+    gain.connect(this.mixBus);
+    const oscillators: OscillatorNode[] = [], levels: GainNode[] = [];
+    for (const type of ['sine','triangle','sawtooth','square'] as OscillatorType[]) {
+      const osc = this.context.createOscillator(), level = this.context.createGain();
+      osc.type = type; level.gain.value = 0;
+      osc.connect(level); level.connect(gain); osc.start(now);
+      oscillators.push(osc); levels.push(level);
+    }
+    const note: ActiveNote = { sources: oscillators, gain, startsAt: now, endsAt: Infinity,
+      cleanup: () => levels.forEach(n => n.disconnect()) };
+    this.track(note); this.gesture = { note, oscillators, levels };
+    this.moveGesture(midi, timbre);
+  }
+
+  moveGesture(midi: number, timbre: number): void {
+    const gesture = this.gesture; if (!gesture) return;
+    const position = clamp01(timbre) * 3;
+    gesture.oscillators.forEach(osc => this.rampParam(osc.frequency, midiToFrequency(midi), 0.025));
+    gesture.levels.forEach((level,index) => this.rampParam(level.gain, Math.max(0, 1 - Math.abs(position - index)), 0.025));
+  }
+
+  endGesture(): void {
+    if (!this.gesture) return;
+    const note = this.gesture.note;
+    this.tearDown(note, this.context.currentTime, 0.025);
+    note.endsAt = this.context.currentTime + 0.03;
+    this.gesture = null;
+  }
+
+  /** A take has its own FX path, then shares the instrument's master and limiter. */
+  playVocal(buffer: AudioBuffer, at: number, fx: VocalFX, duration = buffer.duration): void {
+    if (this.disposed) return;
+    this.reap(this.context.currentTime);
+    if (this.active.size >= AUDIO_LIMITS.maxActiveNotes) this.steal(this.context.currentTime);
+    const source = this.context.createBufferSource(); source.buffer = buffer;
+    const tone = this.context.createBiquadFilter(); tone.type = 'lowpass';
+    tone.frequency.value = 350 * Math.pow(8000 / 350, clamp01(fx.tone));
+    const drive = this.context.createWaveShaper(); drive.curve = makeShaperCurve(destructionDrive(fx.drive)); drive.oversample = '2x';
+    const gain = this.context.createGain(); gain.gain.value = clamp01(fx.level) * destructionMakeup(fx.drive) * 0.8;
+    const output = this.context.createGain();
+    const length = Math.min(buffer.duration, Math.max(0.01, duration));
+    output.gain.setValueAtTime(0, at); output.gain.linearRampToValueAtTime(1, at + 0.01);
+    output.gain.setValueAtTime(1, at + length + 1.1); output.gain.linearRampToValueAtTime(0, at + length + 1.15);
+    source.connect(tone); tone.connect(drive); drive.connect(gain); gain.connect(output); output.connect(this.master);
+    const nodes: AudioNode[] = [source, tone, drive, gain, output];
+    const path = { tone, drive, gain, wet: [] as GainNode[] }; this.vocalPaths.add(path);
+    for (let i = 1; i <= 3; i++) {
+      const delay = this.context.createDelay(1.3), wet = this.context.createGain();
+      delay.delayTime.value = Math.min(1.1, memoryDelayTime(this.tempo) * i);
+      wet.gain.value = clamp01(fx.echo) * Math.pow(0.45, i);
+      path.wet.push(wet);
+      gain.connect(delay); delay.connect(wet); wet.connect(output); nodes.push(delay, wet);
+    }
+    source.start(at); source.stop(at + length);
+    this.track({ sources: [source], gain: output, startsAt: at, endsAt: at + length + 1.2,
+      cleanup: () => { nodes.forEach(n => n.disconnect()); this.vocalPaths.delete(path); } });
+  }
+
+  setVocalFX(fx: VocalFX): void {
+    for (const path of this.vocalPaths) {
+      this.rampParam(path.tone.frequency, 350 * Math.pow(8000 / 350, clamp01(fx.tone)), 0.03);
+      path.drive.curve = makeShaperCurve(destructionDrive(fx.drive));
+      this.rampParam(path.gain.gain, clamp01(fx.level) * destructionMakeup(fx.drive) * 0.8, 0.03);
+      path.wet.forEach((wet,i) => this.rampParam(wet.gain, clamp01(fx.echo)*Math.pow(0.45,i+1),0.03));
+    }
   }
 
   dispose(): void {
@@ -416,6 +507,7 @@ export class AudioEngine {
           /* already disconnected */
         }
         this.active.delete(note);
+        note.cleanup?.();
       }
     });
   }
@@ -435,6 +527,7 @@ export class AudioEngine {
       }
       this.tearDown(latest, latest.startsAt, 0.01);
       this.active.delete(latest);
+      latest.cleanup?.();
       return;
     }
     let oldest = sounding[0] as ActiveNote;
@@ -443,6 +536,7 @@ export class AudioEngine {
     }
     this.tearDown(oldest, now, 0.01);
     this.active.delete(oldest);
+    oldest.cleanup?.();
   }
 
   private tearDown(note: ActiveNote, now: number, fade: number): void {
@@ -460,6 +554,7 @@ export class AudioEngine {
         /* already stopped */
       }
     });
+    // Vocal delay outputs share this gain, so Kill also silences their tails.
   }
 
   private rampParam(param: AudioParam, target: number, seconds: number): void {

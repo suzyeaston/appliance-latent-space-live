@@ -770,3 +770,18 @@ body.performing .stage { height: 40vh; }
 body.performing .stage { height: 40vh; }
 @media(max-width:1000px) { .music-fields { grid-template-columns: repeat(4,minmax(0,1fr)); } }
 @media(max-width:600px) { .music-fields { grid-template-columns: repeat(2,minmax(0,1fr)); } .masthead__sub { display: none; } .timeline { padding: 12px; } }
+
+/* Direct performance gestures must retain pointer capture on mouse and touch. */
+#stage { touch-action: none; cursor: crosshair; }
+#stage:focus-visible { outline: 2px solid var(--accent, #a8e6ff); outline-offset: -3px; }
+.stage-controls { padding: .5rem 1rem; }
+.drag-handle { touch-action: none; cursor: grab; color: inherit; border: 1px solid #566074; border-radius: 6px; padding: .5rem; background: #141426; min-height: 44px; }
+.drag-handle.is-dragging { cursor: grabbing; outline: 2px solid #a8e6ff; }
+.drag-handle:focus-visible { outline: 2px solid #a8e6ff; }
+.drag-handle:disabled { opacity: .4; cursor: default; }
+.block-moves { display: flex; gap: .3rem; }
+.block-moves .btn { flex: 1; min-height: 44px; }
+.vocals .row input { max-width: 100%; }
+.vocals .look-controls { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.drop-target { outline: 2px dashed #a8e6ff; outline-offset: -2px; }
+#vocal-name, #vocal-scene { min-width: 0; max-width: 100%; background: #080d19; color: #e8eaff; border: 1px solid #535a76; border-radius: 6px; padding: 9px; }

@@ -45,6 +45,6 @@ describe('DJ musical controls',()=>{
     const value={version:1,scenes:[{name:'Opening',pattern:source},null,null,null]};
     expect(readSet(value)[0]?.pattern).toBe(source);
     expect(()=>readSet({...value,scenes:[{name:'bad',pattern:'bad'},null,null,null]})).toThrow();
-    expect(()=>readSet({...value,version:3})).toThrow();
+    expect(()=>readSet({...value,version:4})).toThrow();
   });
 });

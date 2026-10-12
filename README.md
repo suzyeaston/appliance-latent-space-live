@@ -9,6 +9,16 @@ Public hackathon build, heading into [Basecamp](https://basecampyvr.ca/), a crea
 
 [Open the instrument](https://suzyeaston.github.io/appliance-latent-space-live/) (available after setup finishes and GitHub Pages completes its first build).
 
+## Play the visual and record vocals
+
+Drag the visual to play: horizontal motion blends soft and bright timbres, vertical motion changes pitch. Enable **Keep pointer gestures in the phrase** to overdub a grid-snapped visual voice. Arrow keys on the focused canvas also play. Colour and ring edge now follow the actual output spectrum, alongside each synth waveform.
+
+Record a local vocal take (up to 20 seconds), adjust vocal level, tone, drive and echo, then save the take and FX into a scene. Takes play at the first bar and are cropped to the phrase length. Set JSON exports include attached recordings. Nothing is uploaded; browser storage can fill up, so export your set for a backup.
+
+Drag block handles to reorder the set, or drag saved scenes onto blocks. Arrow buttons and left/right keys on a block handle are available too. Dragging a scene onto another scene swaps slots while preserving timeline references.
+
+WordPress embeds must include `allow="microphone; autoplay; fullscreen"`; see [the updated embed snippet](docs/wordpress-embed.html). HTTPS and browser microphone permission are required.
+
 ## Timeline update
 
 Compact musical controls above the visual, with an eight-block playable arrangement below. Four saved scenes can be repeated and sequenced on bar boundaries. See [the timeline guide](docs/timeline.md).
@@ -82,6 +92,7 @@ See [`docs/suzy-ai-integration.md`](docs/suzy-ai-integration.md).
 npm run test:audio  # Chrome, renders the actual audio graph; not a listening test
 npm run preview    # production preview on port 4173
 npm run test:ui    # in another terminal, Chrome UI smoke test
+npm run test:performance # headless Chrome: gestures, real MediaRecorder with test input, scene drag and vocal playback
 ```
 
 Chrome is detected on macOS and Linux; CHROME_PATH can override its location.
