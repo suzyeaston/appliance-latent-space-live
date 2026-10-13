@@ -37,17 +37,18 @@
       </header>
 
       <section class="music-strip" aria-label="Music controls">
-        <div class="music-fields"><label>Key<select id="dj-root"><option value="0">C</option><option value="1">C♯ / D♭</option><option value="2">D</option><option value="3">D♯ / E♭</option><option value="4">E</option><option value="5">F</option><option value="6">F♯ / G♭</option><option value="7">G</option><option value="8">G♯ / A♭</option><option value="9" selected>A</option><option value="10">A♯ / B♭</option><option value="11">B</option></select></label>
-<label>Scale<select id="dj-scale"><option value="minor">Natural minor</option><option value="major">Major</option><option value="dorian">Dorian</option><option value="pentatonic">Minor pentatonic</option></select></label>
+        <p id="current-phrase" role="status" aria-live="polite"></p>
+        <div class="music-fields"><label>New groove key<select id="dj-root"><option value="0">C</option><option value="1">C♯ / D♭</option><option value="2">D</option><option value="3">D♯ / E♭</option><option value="4">E</option><option value="5">F</option><option value="6">F♯ / G♭</option><option value="7">G</option><option value="8">G♯ / A♭</option><option value="9" selected>A</option><option value="10">A♯ / B♭</option><option value="11">B</option></select></label>
+<label>New groove scale<select id="dj-scale"><option value="minor">Natural minor</option><option value="major">Major</option><option value="dorian">Dorian</option><option value="pentatonic">Minor pentatonic</option></select></label>
 <label class="tempo-field">Tempo <input id="quick-tempo" type="number" min="20" max="300" step="1" value="104" aria-label="Tempo in BPM" /> BPM</label>
 <label>Style<select id="dj-style"><option value="house">House</option><option value="broken">Broken beat</option><option value="dub">Dub</option><option value="ambient">Ambient</option><option value="electro">Electro</option></select></label>
 <label>Rhythm<select id="dj-rhythm"><option value="four">Four on the floor</option><option value="breaks">Breakbeat</option><option value="half">Half-time</option><option value="sparse">Sparse</option></select></label>
 <label>Density<input id="dj-density" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
 <label>Swing · straight → loose<input id="dj-swing" type="range" min="0" max="0.45" step="0.01" value="0.08" /></label></div>
-        <div class="row"><button id="dj-build" class="btn btn--start" type="button">Apply groove</button><button id="focus-stage" class="btn" type="button">Performance view</button><button id="dj-undo" class="btn" type="button" disabled>Undo DJ change</button><span class="hint">Key, scale and style shape a new groove when you press Apply.</span></div>
+        <div class="row"><button id="dj-build" class="btn btn--start" type="button">Apply groove</button><button id="focus-stage" class="btn" type="button">Performance view</button><button id="dj-undo" class="btn" type="button" disabled>Undo DJ change</button><span class="hint">Apply builds a new phrase. Start plays the loaded phrase shown above.</span></div>
         <div class="row"><button id="synth-reset" class="btn" type="button">Reset synth FX</button><span id="synth-fx-status" class="hint" role="status"></span></div>
         <p id="audio-status" class="audio-status" role="status">Press Start to hear the instrument.</p>
-        <p id="dj-status" role="status" aria-live="polite">Choose a key and groove. Tempo changes the current music; Apply groove creates a new phrase.</p>
+        <p id="dj-status" role="status" aria-live="polite">These are settings for a new groove. Start plays the current phrase; Apply groove replaces it using the selected key and scale.</p>
       </section>
       <section class="stage" aria-label="Visualisation">
         <span id="visual-mode" class="stage-label">DESIGNED VISUALS · MANUAL</span>
