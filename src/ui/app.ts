@@ -30,6 +30,7 @@ import { DJ } from './dj';
 import { Vocals } from './vocals';
 import { vocalBuffer, type VocalTake } from '../core/audio/vocals';
 import { stagePoint, writeGesture } from '../core/performance/gesture';
+import { phraseSummary } from '../core/performance/phraseSummary';
 import { Studio } from './studio';
 import { formatScore } from '../core/pattern/format';
 import { Visualizer } from '../core/visual/renderer';
@@ -717,6 +718,8 @@ export class App {
   }
 
   private setPatternState(state: PatternState): void {
+    const playing = this.sequencer.isRunning;
+    el('current-phrase').textContent = `${playing ? 'Playing' : 'Ready'}: ${phraseSummary(playing ? this.sequencer.activeScore : this.lastValidScore)}. Groove settings build a new phrase when you press Apply.`;
     this.patternState = state;
     const invalidLabel = this.sequencer.isRunning
       ? 'invalid — last valid pattern still playing'

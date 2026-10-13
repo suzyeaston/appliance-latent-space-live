@@ -107,3 +107,5 @@ Next: play and tune the instrument, then add Web MIDI through the existing seman
 This snapshot includes no license grant; public visibility alone does not make the code open source. Choose a license separately if you want to grant reuse rights.
 
 See [the musician workflow QA](docs/musician-qa.md) for the startup distortion diagnosis and remaining recording/arranging gaps.
+
+The **New groove key/scale** controls are settings for **Apply groove**, not an analysis of the music currently loaded. **Start** plays the editor/restored phrase. The current-phrase readout shows the phrase name and its first explicit chord (or opening note); that is not a claim about the whole song's key. The fresh Service Elevator example opens with Am and later uses F/G major chords, all drawn from A natural minor. Restored projects retain their actual music even when new-groove settings show the defaults.
