@@ -45,11 +45,13 @@
 <label>Density<input id="dj-density" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
 <label>Swing · straight → loose<input id="dj-swing" type="range" min="0" max="0.45" step="0.01" value="0.08" /></label></div>
         <div class="row"><button id="dj-build" class="btn btn--start" type="button">Apply groove</button><button id="focus-stage" class="btn" type="button">Performance view</button><button id="dj-undo" class="btn" type="button" disabled>Undo DJ change</button><span class="hint">Key, scale and style shape a new groove when you press Apply.</span></div>
+        <div class="row"><button id="synth-reset" class="btn" type="button">Reset synth FX</button><span id="synth-fx-status" class="hint" role="status"></span></div>
         <p id="audio-status" class="audio-status" role="status">Press Start to hear the instrument.</p>
         <p id="dj-status" role="status" aria-live="polite">Choose a key and groove. Tempo changes the current music; Apply groove creates a new phrase.</p>
       </section>
       <section class="stage" aria-label="Visualisation">
         <span id="visual-mode" class="stage-label">DESIGNED VISUALS · MANUAL</span>
+        <span id="stage-recording-mode" class="stage-recording-mode" role="status">LIVE PLAY · NOT RECORDING</span>
         <canvas id="stage" tabindex="0" role="application" aria-label="Play the visual instrument. Drag left to right for soft to bright timbre, and up for higher pitch. Arrow keys also play." aria-describedby="stage-help"></canvas>
         <div class="stage__readout">
           <span id="position-readout">bar — / —</span>
@@ -58,9 +60,11 @@
       </section>
 
       <div class="stage-controls">
-        <p id="stage-help" class="hint">Drag to play. Left → right: soft → bright timbre. Low → high: pitch. The ring's colour follows spectral brightness; its edge follows high harmonics. Arrow keys also play.</p>
-        <label class="check"><input id="stage-write" type="checkbox" /> Keep pointer gestures in the phrase</label>
-        <p id="stage-gesture-status" role="status" aria-live="polite">Play freely, or keep a gesture as a grid-snapped visual voice.</p>
+        <p id="stage-help" class="hint">Drag to play. Left → right: soft → bright timbre. Low → high: pitch. Live play saves nothing. Arm Record visual notes, drag, then release to keep a take. The ring follows spectral brightness and harmonics. Arrow keys play live notes only.</p>
+        <label class="check"><input id="stage-write" type="checkbox" aria-describedby="stage-record-help" /> Record visual notes into the phrase</label>
+        <p id="stage-record-help" class="hint">Records grid-snapped notes and the final waveform into the visual voice. It does not record microphone audio or the full timbre movement.</p>
+        <div class="row"><button id="stage-replay" class="btn btn--start" type="button">Play phrase</button><button id="stage-undo" class="btn" type="button" disabled>Undo last visual take</button><button id="stage-save" class="btn" type="button">Save phrase to set</button></div>
+        <p id="stage-gesture-status" role="status" aria-live="polite">Live play is on. Nothing is being recorded. Arm Record visual notes before dragging to keep a take.</p>
       </div>
       <section class="vocals panel" aria-label="Vocal recording">
         <div class="panel__head"><h2>Your voice</h2><span id="vocal-take" class="tag">No vocal take yet</span></div>

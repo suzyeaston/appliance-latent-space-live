@@ -34,6 +34,12 @@ describe('direct visual performance', () => {
     expect(high.edge).toBeGreaterThan(low.edge);
     expect(spectrumTimbre(Uint8Array.from([0,100,0,0]))).toEqual(low);
   });
+  it('keeps held notes as a sustain rather than a series of retriggers', () => {
+    const parsed=parsePattern(source);if(!parsed.ok)throw new Error('fixture');
+    const next=writeGesture(parsed.score,[{step:0,midi:64},{step:1,midi:64},{step:2,midi:67}],'triangle');
+    expect(next.events.filter(e=>e.voice===1).map(e=>({steps:e.steps,pitch:e.pitches[0]}))).toEqual([{steps:2,pitch:64},{steps:1,pitch:67}]);
+    expect(parsePattern(formatScore(next)).ok).toBe(true);
+  });
 });
 
 describe('recorded scene data', () => {

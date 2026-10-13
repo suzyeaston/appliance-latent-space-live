@@ -22,7 +22,11 @@ export function writeGesture(score: Score, points: Array<{ step: number; midi: n
     steps.set(Math.max(0, Math.min(next.totalSteps - 1, Math.floor(p.step))), Math.max(48, Math.min(84, Math.round(p.midi))));
   }
   next.events = next.events.filter(e => e.voice !== voice || !steps.has(e.step));
-  for (const [step, midi] of steps) next.events.push({ voice, step, steps: 1, pitches: [midi], velocity: 0.7, line: 1 });
+  let held: (typeof next.events)[number] | null = null;
+  for (const [step, midi] of [...steps].sort((a,b)=>a[0]-b[0])) {
+    if (held && held.step + held.steps === step && held.pitches[0] === midi) held.steps++;
+    else { held = { voice, step, steps: 1, pitches: [midi], velocity: 0.7, line: 1 }; next.events.push(held); }
+  }
   next.events.sort((a,b) => a.step - b.step || a.voice - b.voice);
   return next;
 }
