@@ -195,6 +195,21 @@ export async function runAudioChecks(): Promise<AudioReport> {
     `dry ${rms(dry, 0.1, 1.6, SAMPLE_RATE).toFixed(4)} dark ${rms(dark, 0.1, 1.6, SAMPLE_RATE).toFixed(4)}`,
   );
 
+  const cleanStack = await render(stack,2,(engine,notes)=>{
+    engine.setMasterVolume(.5);engine.setDestruction(0);playAll(engine,stack,notes);
+  });
+  const bypassStack = await render(stack,2,(engine,notes)=>{
+    engine.setMasterVolume(.5);engine.setDestruction(0);
+    // Reference the native null-curve bypass: an identity lookup table clamps
+    // the summed chord/drum bus even when its final output never clips.
+    (engine as unknown as {shaper:WaveShaperNode}).shaper.curve=null;
+    playAll(engine,stack,notes);
+  });
+  let cleanError=0;
+  for(let i=0;i<cleanStack.length;i++)cleanError=Math.max(cleanError,Math.abs(cleanStack[i]!-bypassStack[i]!));
+  record('zero destruction preserves polyphonic headroom like a true bypass',cleanError<.00001,
+    `maximum bypass error ${cleanError.toFixed(7)}, output peak ${peak(cleanStack).toFixed(4)}`);
+
   const gesture = async (timbre: number): Promise<Float32Array> => {
     const context = new OfflineAudioContext(1,SAMPLE_RATE,SAMPLE_RATE);
     const engine = new AudioEngine(context); engine.setMasterVolume(.7); engine.setBrowning(0);

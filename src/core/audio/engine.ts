@@ -100,7 +100,9 @@ export class AudioEngine {
     this.colour.Q.value = browningResonance(0.35);
 
     this.shaper = context.createWaveShaper();
-    this.shaper.curve = makeShaperCurve(0);
+    // An identity curve still hard-clamps input outside [-1, 1]. A null curve is
+    // Web Audio's true bypass, preserving headroom when destruction is off.
+    this.shaper.curve = null;
     this.shaper.oversample = '2x';
 
     this.makeup = context.createGain();
@@ -177,7 +179,7 @@ export class AudioEngine {
   }
 
   setDestruction(value: number): void {
-    this.shaper.curve = makeShaperCurve(destructionDrive(value));
+    this.shaper.curve = clamp01(value) === 0 ? null : makeShaperCurve(destructionDrive(value));
     this.rampParam(this.makeup.gain, destructionMakeup(value), 0.05);
   }
 
@@ -312,7 +314,7 @@ export class AudioEngine {
     const source = this.context.createBufferSource(); source.buffer = buffer;
     const tone = this.context.createBiquadFilter(); tone.type = 'lowpass';
     tone.frequency.value = 350 * Math.pow(8000 / 350, clamp01(fx.tone));
-    const drive = this.context.createWaveShaper(); drive.curve = makeShaperCurve(destructionDrive(fx.drive)); drive.oversample = '2x';
+    const drive = this.context.createWaveShaper(); drive.curve = clamp01(fx.drive) === 0 ? null : makeShaperCurve(destructionDrive(fx.drive)); drive.oversample = '2x';
     const gain = this.context.createGain(); gain.gain.value = clamp01(fx.level) * destructionMakeup(fx.drive) * 0.8;
     const output = this.context.createGain();
     const length = Math.min(buffer.duration, Math.max(0.01, duration));
@@ -336,7 +338,7 @@ export class AudioEngine {
   setVocalFX(fx: VocalFX): void {
     for (const path of this.vocalPaths) {
       this.rampParam(path.tone.frequency, 350 * Math.pow(8000 / 350, clamp01(fx.tone)), 0.03);
-      path.drive.curve = makeShaperCurve(destructionDrive(fx.drive));
+      path.drive.curve = clamp01(fx.drive) === 0 ? null : makeShaperCurve(destructionDrive(fx.drive));
       this.rampParam(path.gain.gain, clamp01(fx.level) * destructionMakeup(fx.drive) * 0.8, 0.03);
       path.wet.forEach((wet,i) => this.rampParam(wet.gain, clamp01(fx.echo)*Math.pow(0.45,i+1),0.03));
     }

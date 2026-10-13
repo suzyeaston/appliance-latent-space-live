@@ -785,3 +785,6 @@ body.performing .stage { height: 40vh; }
 .vocals .look-controls { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .drop-target { outline: 2px dashed #a8e6ff; outline-offset: -2px; }
 #vocal-name, #vocal-scene { min-width: 0; max-width: 100%; background: #080d19; color: #e8eaff; border: 1px solid #535a76; border-radius: 6px; padding: 9px; }
+.stage-recording-mode { position: absolute; top: 12px; right: 12px; z-index: 2; pointer-events: none; padding: .4rem .6rem; border-radius: 4px; background: #111526; color: #dae1ff; font: 11px var(--font-mono, monospace); }
+.stage-recording-mode[data-recording="true"] { background: #731f37; color: #fff; }
+@media (max-width: 600px) { .stage-recording-mode { top: auto; bottom: 36px; left: 12px; right: auto; } }

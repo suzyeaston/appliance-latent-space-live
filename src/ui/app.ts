@@ -55,6 +55,7 @@ export class App {
   private vocals?: Vocals;
   private cancelStageGesture: () => void = () => {};
   private barAnchor: BarEvent | null = null;
+  private visualUndo: { before: string; after: string } | null = null;
 
   private context: AudioContext | null = null;
   private engine: AudioEngine | null = null;
@@ -137,6 +138,7 @@ export class App {
         const parsed = parsePattern(text);
         if (!parsed.ok) { this.dj?.stopTimeline(); return null; }
         this.editor.value = text;
+        this.visualUndo = null; el<HTMLButtonElement>('stage-undo').disabled = true;
         this.lastValidScore = parsed.score;
         this.activeSource = text;
         this.queueAutosave();
@@ -169,6 +171,7 @@ export class App {
     this.wireProposals();
     this.wireKeyboard();
     this.wireStage();
+    this.reflectSynthFX();
 
     el<HTMLSpanElement>('control-map-version').textContent = `map v${this.map.schemaVersion}`;
     el<HTMLParagraphElement>('provider-description').textContent =
@@ -369,14 +372,42 @@ export class App {
     let points: Array<{step: number; midi: number}> = [];
     let frame = 0, request = 0;
     const readout = el<HTMLElement>('stage-gesture-status');
+    const mode = el<HTMLElement>('stage-recording-mode');
+    const record = el<HTMLInputElement>('stage-write');
+    const reflectMode = (): void => {
+      mode.textContent = record.checked ? 'NOTES ARMED · DRAG TO RECORD' : 'LIVE PLAY · NOT RECORDING';
+      mode.dataset['recording'] = 'false';
+    };
+    record.onchange = () => {
+      reflectMode();
+      readout.textContent = record.checked
+        ? 'Armed for notes. Drag, then release to keep this take in the phrase. Microphone audio is separate.'
+        : 'Live play. Clicking makes sound but saves nothing to the phrase.';
+    };
+    el<HTMLButtonElement>('stage-replay').onclick = () => void this.start();
+    el<HTMLButtonElement>('stage-save').onclick = () => {
+      el<HTMLButtonElement>('timeline-add').click();
+      readout.textContent = el('timeline-status').textContent;
+    };
+    el<HTMLButtonElement>('stage-undo').onclick = () => {
+      const undo = this.visualUndo;
+      if (!undo || this.editor.value !== undo.after) return;
+      this.visualUndo = null; this.setEditorValue(undo.before);
+      el<HTMLButtonElement>('stage-undo').disabled = true;
+      readout.textContent = 'Last visual take undone. The previous phrase is restored.';
+    };
+    el<HTMLButtonElement>('synth-reset').onclick = () => {
+      for (const [id,value] of [['browning',0.35],['destruction',0],['memory',0.25]] as const) {
+        this.applyControlEvent({ id, kind: 'continuous', group: 'tone', value, source: 'pointer', at: this.audioNow() });
+      }
+    };
+    reflectMode();
     const update = (pointX: number, pointY: number): void => {
       const point = stagePoint(pointX,pointY); midi = point.midi; x = point.timbre;
       this.visualizer.setGesture({x,y:Math.min(1,Math.max(0,pointY))});
       this.engine?.moveGesture(midi,x);
-      for (const [id,value] of [['browning',1-x],['destruction',x*0.45]] as const) {
-        this.applyControlEvent({ id, kind: 'continuous', group: 'tone', value, source: 'pointer', at: this.audioNow() });
-      }
-      readout.textContent = `Pitch ${midi} · timbre ${Math.round(x*100)}% · ${point.wave}`;
+      // Gesture timbre belongs to the held oscillators, not the whole mix's FX.
+      readout.textContent = `${record.checked && pointer !== null ? 'Recording notes' : 'Live note — not recording'} · pitch ${midi} · timbre ${Math.round(x*100)}% · ${point.wave}`;
     };
     const sample = (): void => {
       const score = this.lastValidScore;
@@ -385,17 +416,25 @@ export class App {
       if (!previous || previous.step !== step) points.push({step,midi}); else previous.midi = midi;
       // One loop per gesture; long holds cannot allocate unbounded events.
       if (points.length > score.totalSteps) points.shift();
+      const stateText = record.checked ? `RECORDING NOTES · ${new Set(points.map(p=>p.step)).size} STEPS` : 'LIVE PLAY · NOT RECORDING';
+      if (mode.textContent !== stateText) mode.textContent = stateText;
+      mode.dataset['recording'] = String(record.checked);
     };
     const finish = (keep: boolean): void => {
       pointer = null; request++; window.cancelAnimationFrame(frame); frame = 0;
       this.engine?.endGesture(); this.visualizer.setGesture(null);
-      if (keep && el<HTMLInputElement>('stage-write').checked && points.length) {
+      reflectMode();
+      if (keep && record.checked && points.length) {
         try {
           const parsed = parsePattern(this.editor.value); if (!parsed.ok) throw new Error('Fix the code errors before keeping the gesture.');
-          this.setEditorValue(formatScore(writeGesture(parsed.score,points,stagePoint(x,0.5).wave)));
-          readout.textContent = 'Gesture kept in the visual voice. Save the phrase to add it to your set.';
+          const before = this.editor.value;
+          const after = formatScore(writeGesture(parsed.score,points,stagePoint(x,0.5).wave));
+          this.setEditorValue(after); this.visualUndo = {before,after};
+          el<HTMLButtonElement>('stage-undo').disabled = false;
+          mode.textContent = 'TAKE KEPT · NOTES IN PHRASE';
+          readout.textContent = `${new Set(points.map(p=>p.step)).size} steps kept. Play phrase to hear them, Undo to retry, or Save phrase to set. This saved notes and the final waveform, not an audio recording.`;
         } catch (error) { readout.textContent = error instanceof Error ? error.message : 'Could not keep gesture.'; }
-      }
+      } else if (keep) readout.textContent = 'Live note released. Nothing was recorded. Arm Record visual notes before dragging to keep a take.';
       points = [];
     };
     this.cancelStageGesture = () => finish(false);
@@ -493,6 +532,7 @@ export class App {
     if (controlStatus(event.id).state !== 'active') return;
     this.controlState[event.id] = event.value;
     this.surface.reflect(event.id, event.value);
+    this.reflectSynthFX();
     this.studio?.refresh();
 
     switch (event.id) {
@@ -541,6 +581,13 @@ export class App {
     this.sequencer.setFrozen((this.controlState['freeze'] ?? 0) >= 0.5);
   }
 
+  private reflectSynthFX(): void {
+    const drive = this.controlState['destruction'] ?? 0;
+    el('synth-fx-status').textContent = drive > 0
+      ? `Synth drive: ${Math.round(drive*100)}% — distortion is enabled. Reset synth FX for a clean drive path.`
+      : 'Synth drive is off. Square and saw voices still have a naturally buzzy tone.';
+  }
+
   private takeCapture(): void {
     this.capture = {
       pattern: this.editor.value,
@@ -584,6 +631,7 @@ export class App {
 
   private wireEditor(): void {
     this.editor.addEventListener('input', () => {
+      this.visualUndo = null; el<HTMLButtonElement>('stage-undo').disabled = true;
       this.dj?.stopTimeline();
       window.clearTimeout(this.editTimer);
       this.editTimer = window.setTimeout(() => this.validate({ queue: true }), EDIT_DEBOUNCE_MS);
@@ -686,6 +734,10 @@ export class App {
   }
 
   private setEditorValue(text: string): void {
+    if (this.visualUndo && text !== this.visualUndo.after) {
+      this.visualUndo = null;
+      el<HTMLButtonElement>('stage-undo').disabled = true;
+    }
     this.dj?.stopTimeline();
     this.editor.value = text;
     window.clearTimeout(this.editTimer);

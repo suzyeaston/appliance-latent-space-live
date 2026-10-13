@@ -11,7 +11,7 @@ Public hackathon build, heading into [Basecamp](https://basecampyvr.ca/), a crea
 
 ## Play the visual and record vocals
 
-Drag the visual to play: horizontal motion blends soft and bright timbres, vertical motion changes pitch. Enable **Keep pointer gestures in the phrase** to overdub a grid-snapped visual voice. Arrow keys on the focused canvas also play. Colour and ring edge now follow the actual output spectrum, alongside each synth waveform.
+Drag the visual to play: horizontal motion blends soft and bright timbres, vertical motion changes pitch. Arm **Record visual notes into the phrase**, drag, then release to keep a grid-snapped visual take. The stage shows whether you are playing live, armed, recording notes, or keeping a take. Play phrase, Undo last visual take and Save phrase to set sit below the visual. Held notes stay tied; the final waveform is saved, but the complete timbre movement is not. Arrow keys on the focused canvas play live notes. Dragging does not change the whole mix’s distortion or filter settings. Reset synth FX restores the default synth effects without erasing your music. Colour and ring edge now follow the actual output spectrum, alongside each synth waveform.
 
 Record a local vocal take (up to 20 seconds), adjust vocal level, tone, drive and echo, then save the take and FX into a scene. Takes play at the first bar and are cropped to the phrase length. Set JSON exports include attached recordings. Nothing is uploaded; browser storage can fill up, so export your set for a backup.
 
@@ -105,3 +105,5 @@ Next: play and tune the instrument, then add Web MIDI through the existing seman
 - [Hackathon brief](docs/HACKATHON.md)
 
 This snapshot includes no license grant; public visibility alone does not make the code open source. Choose a license separately if you want to grant reuse rights.
+
+See [the musician workflow QA](docs/musician-qa.md) for the startup distortion diagnosis and remaining recording/arranging gaps.
