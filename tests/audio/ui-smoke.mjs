@@ -31,7 +31,8 @@ try {
   const status = await page.$eval('#audio-status', (el) => el.textContent.trim());
   const editor = await page.$eval('#editor', (el) => el.value);
   note('title', heading.includes('Appliance Latent Space'), heading);
-  note('silent until start', /not running|until you press Start/i.test(status), status);
+  const contextState = await page.evaluate(() => window.applianceApp.debugState().contextState);
+  note('silent until start', contextState === 'none', `${status} · context ${contextState}`);
   note('example loaded', /Service Elevator/.test(editor) && /tempo 104/.test(editor), editor.slice(0, 40));
 
   const disabled = await page.$$eval('[data-state="unimplemented"]', (rows) =>
@@ -88,6 +89,7 @@ try {
   await page.screenshot({ path: `${OUT}/04-killed.png` });
 
   page.once('dialog', (dialog) => dialog.accept());
+  await page.$eval('.scene-library', (el) => { el.open = true; });
   await page.click('#examples button:nth-of-type(2)');
   await new Promise((r) => setTimeout(r, 400));
   const cold = await page.$eval('#editor', (el) => el.value);

@@ -27,6 +27,9 @@ import { variationProvider } from '../core/proposals/variation';
 import type { Proposal } from '../core/proposals/types';
 import { Sequencer, type BarEvent, type ScheduledNote } from '../core/sequencer';
 import { DJ } from './dj';
+import { Vocals } from './vocals';
+import { vocalBuffer, type VocalTake } from '../core/audio/vocals';
+import { stagePoint, writeGesture } from '../core/performance/gesture';
 import { Studio } from './studio';
 import { formatScore } from '../core/pattern/format';
 import { Visualizer } from '../core/visual/renderer';
@@ -49,6 +52,9 @@ export class App {
 
   private studio?: Studio;
   private dj?: DJ;
+  private vocals?: Vocals;
+  private cancelStageGesture: () => void = () => {};
+  private barAnchor: BarEvent | null = null;
 
   private context: AudioContext | null = null;
   private engine: AudioEngine | null = null;
@@ -143,6 +149,7 @@ export class App {
     this.visualizer = new Visualizer(el<HTMLCanvasElement>('stage'), {
       now: () => this.audioNow(),
       energy: () => this.engine?.energy() ?? 0,
+      timbre: () => this.engine?.timbre() ?? { brightness: 0, edge: 0 },
     });
     this.visualizer.setMemory(this.controlState['memory'] ?? 0.25);
     this.visualizer.setIntensity(this.visualIntensity);
@@ -161,6 +168,7 @@ export class App {
     this.wireProject();
     this.wireProposals();
     this.wireKeyboard();
+    this.wireStage();
 
     el<HTMLSpanElement>('control-map-version').textContent = `map v${this.map.schemaVersion}`;
     el<HTMLParagraphElement>('provider-description').textContent =
@@ -198,7 +206,13 @@ export class App {
         return true;
       },
     });
-    this.dj = new DJ({source: () => this.editor.value, load: pattern => this.setEditorValue(pattern), running: () => this.sequencer.isRunning, start: async () => {
+    this.vocals = new Vocals({ context: () => this.ensureAudio(),
+      effects: fx => this.engine?.setVocalFX(fx),
+      play: (take, preview) => void this.previewVocal(take, preview),
+      attach: scene => this.dj?.attachVocal(scene),
+    });
+    this.dj = new DJ({ vocal: () => this.vocals?.snapshot() ?? null,
+      selectVocal: take => this.vocals?.select(take), scenesChanged: scenes => this.vocals?.refreshScenes(scenes), source: () => this.editor.value, load: pattern => this.setEditorValue(pattern), running: () => this.sequencer.isRunning, start: async () => {
       this.controlState['freeze'] = 0;
       this.surface.reflect('freeze', 0);
       this.sequencer.setFrozen(false);
@@ -227,13 +241,12 @@ export class App {
     return this.context ? this.context.currentTime : performance.now() / 1000;
   }
 
-  private async start(): Promise<void> {
-    if (this.sequencer.isRunning) return;
+  private async ensureAudio(): Promise<AudioContext | null> {
     if (!this.context) {
       const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctor) {
         this.setAudioStatus('This browser has no Web Audio support, so the instrument cannot make sound.', 'warn');
-        return;
+        return null;
       }
       this.context = new Ctor({ latencyHint: 'interactive' });
       this.context.addEventListener('statechange', () => this.reportAudioState());
@@ -245,11 +258,20 @@ export class App {
       if (this.context.state !== 'running') await this.context.resume();
     } catch {
       this.setAudioStatus('The browser refused to start audio. Click Start again.', 'warn');
-      return;
+      return null;
     }
 
+    this.killButton.disabled = false;
+    this.stopButton.disabled = false;
+    return this.context;
+  }
+
+  private async start(): Promise<void> {
+    if (this.sequencer.isRunning) return;
+    const context = await this.ensureAudio();
+    if (!context) return;
     this.engine?.setTempo(this.sequencer.activeScore.tempo);
-    this.sequencer.start(this.context.currentTime);
+    this.sequencer.start(context.currentTime);
     if (!this.schedulerTimer) {
       this.schedulerTimer = window.setInterval(() => this.sequencer.tick(), SCHEDULER_INTERVAL_MS);
     }
@@ -261,6 +283,8 @@ export class App {
   }
 
   private stop(): void {
+    this.cancelStageGesture();
+    this.vocals?.cancel();
     this.dj?.stopTimeline(true);
     this.sequencer.stop();
     if (this.schedulerTimer) {
@@ -282,6 +306,8 @@ export class App {
 
   /** kill: everything stops, right now. */
   private killAll(): void {
+    this.cancelStageGesture();
+    this.vocals?.cancel();
     this.dj?.stopTimeline(true);
     this.engine?.kill();
     this.sequencer.stop();
@@ -330,6 +356,87 @@ export class App {
 
   // ---------------------------------------------------------------- musical events
 
+  private async previewVocal(take: VocalTake, _preview: boolean): Promise<void> {
+    const context = await this.ensureAudio(); if (!context) return;
+    this.engine?.playVocal(vocalBuffer(context, take), context.currentTime + 0.02, take.fx);
+    this.killButton.disabled = false;
+    this.stopButton.disabled = false;
+  }
+
+  private wireStage(): void {
+    const canvas = el<HTMLCanvasElement>('stage');
+    let pointer: number | null = null, began = 0, offset = 0, midi = 60, x = 0.5;
+    let points: Array<{step: number; midi: number}> = [];
+    let frame = 0, request = 0;
+    const readout = el<HTMLElement>('stage-gesture-status');
+    const update = (pointX: number, pointY: number): void => {
+      const point = stagePoint(pointX,pointY); midi = point.midi; x = point.timbre;
+      this.visualizer.setGesture({x,y:Math.min(1,Math.max(0,pointY))});
+      this.engine?.moveGesture(midi,x);
+      for (const [id,value] of [['browning',1-x],['destruction',x*0.45]] as const) {
+        this.applyControlEvent({ id, kind: 'continuous', group: 'tone', value, source: 'pointer', at: this.audioNow() });
+      }
+      readout.textContent = `Pitch ${midi} · timbre ${Math.round(x*100)}% · ${point.wave}`;
+    };
+    const sample = (): void => {
+      const score = this.lastValidScore;
+      const step = (offset + Math.floor((this.audioNow()-began)/secondsPerStep(score.tempo,score.grid))) % score.totalSteps;
+      const previous = points[points.length-1];
+      if (!previous || previous.step !== step) points.push({step,midi}); else previous.midi = midi;
+      // One loop per gesture; long holds cannot allocate unbounded events.
+      if (points.length > score.totalSteps) points.shift();
+    };
+    const finish = (keep: boolean): void => {
+      pointer = null; request++; window.cancelAnimationFrame(frame); frame = 0;
+      this.engine?.endGesture(); this.visualizer.setGesture(null);
+      if (keep && el<HTMLInputElement>('stage-write').checked && points.length) {
+        try {
+          const parsed = parsePattern(this.editor.value); if (!parsed.ok) throw new Error('Fix the code errors before keeping the gesture.');
+          this.setEditorValue(formatScore(writeGesture(parsed.score,points,stagePoint(x,0.5).wave)));
+          readout.textContent = 'Gesture kept in the visual voice. Save the phrase to add it to your set.';
+        } catch (error) { readout.textContent = error instanceof Error ? error.message : 'Could not keep gesture.'; }
+      }
+      points = [];
+    };
+    this.cancelStageGesture = () => finish(false);
+    const atPointer = (event: PointerEvent): void => {
+      const rect = canvas.getBoundingClientRect(); update((event.clientX-rect.left)/rect.width,(event.clientY-rect.top)/rect.height);
+    };
+    canvas.onpointerdown = async event => {
+      if (event.button !== 0 || pointer !== null) return;
+      event.preventDefault(); pointer = event.pointerId; canvas.setPointerCapture(event.pointerId); canvas.focus();
+      const current = ++request; atPointer(event);
+      const context = await this.ensureAudio();
+      if (current !== request || pointer === null) return;
+      if (!context) { finish(false); return; }
+      began = context.currentTime; points = [];
+      const score = this.lastValidScore;
+      offset = this.sequencer.isRunning && this.barAnchor
+        ? (this.barAnchor.bar * score.grid + Math.max(0,Math.floor((began-this.barAnchor.time)/secondsPerStep(score.tempo,score.grid)))) % score.totalSteps : 0;
+      this.engine?.beginGesture(midi,x); this.killButton.disabled = false; this.stopButton.disabled = false;
+      const tick = (): void => { if (pointer === null) return; sample(); frame = window.requestAnimationFrame(tick); }; tick();
+    };
+    canvas.onpointermove = event => { if (event.pointerId === pointer) atPointer(event); };
+    canvas.onpointerup = event => { if (event.pointerId === pointer) finish(true); };
+    canvas.onpointercancel = () => finish(false);
+    canvas.onlostpointercapture = () => { if (pointer !== null) finish(false); };
+    window.addEventListener('blur', () => finish(false));
+    // Arrow keys perform the same pitch/timbre gesture without needing a pointer.
+    let keys = new Set<string>();
+    canvas.onkeydown = async event => {
+      if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
+      event.preventDefault(); if (event.repeat) return;
+      keys.add(event.key); x = Math.max(0,Math.min(1,x+(event.key==='ArrowRight'?0.08:event.key==='ArrowLeft'?-0.08:0)));
+      midi = Math.max(48,Math.min(84,midi+(event.key==='ArrowUp'?1:event.key==='ArrowDown'?-1:0)));
+      const current = request;
+      update(x,1-(midi-48)/36);
+      const context = await this.ensureAudio(); if (!context || current !== request || !keys.size) return;
+      this.engine?.beginGesture(midi,x); this.killButton.disabled = false; this.stopButton.disabled = false;
+    };
+    canvas.onkeyup = event => { keys.delete(event.key); if (!keys.size) { this.engine?.endGesture(); this.visualizer.setGesture(null); } };
+    canvas.addEventListener('blur', () => { keys = new Set(); finish(false); });
+  }
+
   private handleNotes(notes: ScheduledNote[]): void {
     const score = this.sequencer.activeScore;
     notes.forEach((note) => {
@@ -347,6 +454,7 @@ export class App {
           loopStep: note.loopStep,
           steps: note.event.steps,
           totalSteps: score.totalSteps,
+          wave: voice.wave,
           ...(note.event.hit ? { hit: note.event.hit } : {}),
         },
       ]);
@@ -354,8 +462,14 @@ export class App {
   }
 
   private handleBar(bar: BarEvent): void {
-    this.studio?.refresh();
+    this.barAnchor = bar;
     const score = this.sequencer.activeScore;
+    this.engine?.setTempo(score.tempo);
+    if (bar.bar === 0 && this.context) {
+      this.vocals?.playAt(this.context, bar.time, (buffer, at, fx) =>
+        this.engine?.playVocal(buffer, at, fx, secondsPerStep(this.sequencer.activeScore.tempo, this.sequencer.activeScore.grid) * this.sequencer.activeScore.totalSteps));
+    }
+    this.studio?.refresh();
     this.visualizer.setAnchor({
       time: bar.time,
       bar: bar.bar,
@@ -943,6 +1057,8 @@ export class App {
       contextState: this.context?.state ?? 'none',
       savedAt: this.lastSavedAt?.toISOString() ?? null,
       dirty: this.dirty(),
+      vocal: this.vocals?.snapshot()?.name ?? null,
+      timbre: this.engine?.timbre(),
     };
   }
 }

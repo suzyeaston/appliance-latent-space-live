@@ -50,26 +50,44 @@
       </section>
       <section class="stage" aria-label="Visualisation">
         <span id="visual-mode" class="stage-label">DESIGNED VISUALS · MANUAL</span>
-        <canvas id="stage" aria-label="A musical constellation: note pitch, rhythm and energy shape the drawing; your taught examples can shape its colours and geometry."></canvas>
+        <canvas id="stage" tabindex="0" role="application" aria-label="Play the visual instrument. Drag left to right for soft to bright timbre, and up for higher pitch. Arrow keys also play." aria-describedby="stage-help"></canvas>
         <div class="stage__readout">
           <span id="position-readout">bar — / —</span>
           <span id="playing-readout">nothing playing</span>
         </div>
       </section>
 
+      <div class="stage-controls">
+        <p id="stage-help" class="hint">Drag to play. Left → right: soft → bright timbre. Low → high: pitch. The ring's colour follows spectral brightness; its edge follows high harmonics. Arrow keys also play.</p>
+        <label class="check"><input id="stage-write" type="checkbox" /> Keep pointer gestures in the phrase</label>
+        <p id="stage-gesture-status" role="status" aria-live="polite">Play freely, or keep a gesture as a grid-snapped visual voice.</p>
+      </div>
+      <section class="vocals panel" aria-label="Vocal recording">
+        <div class="panel__head"><h2>Your voice</h2><span id="vocal-take" class="tag">No vocal take yet</span></div>
+        <p class="hint">Record up to 20 seconds. Use headphones. Your microphone is never monitored or uploaded. Each scene can hold its own take and FX; save or export the set to keep them.</p>
+        <div class="row"><label>Take name <input id="vocal-name" maxlength="60" value="Vocal take" /></label><button id="vocal-record" class="btn btn--start" type="button">Record vocals</button><button id="vocal-stop" class="btn" type="button" disabled>Stop recording</button><button id="vocal-preview" class="btn" type="button" disabled>Preview vocal FX</button><button id="vocal-remove" class="btn" type="button" disabled>Remove current take</button></div>
+        <div class="look-controls">
+          <label>Vocal level <input id="vocal-level" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+          <label>Vocal tone <input id="vocal-tone" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+          <label>Vocal drive <input id="vocal-drive" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label>Vocal echo <input id="vocal-echo" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        </div>
+        <div class="row"><label>Save take and FX to <select id="vocal-scene"><option value="">Choose a saved scene</option></select></label><button id="vocal-attach" class="btn" type="button" disabled>Add take to scene</button></div>
+        <p id="vocal-status" role="status" aria-live="polite">Record a take, then preview it or add it to a phrase. Takes play at the first bar of each phrase and are cropped to its length.</p>
+      </section>
       <section class="timeline panel" aria-label="Musical timeline">
         <div class="panel__head"><h2>Your set</h2><span class="tag">8 BLOCKS · LOOPS IN ORDER</span></div>
         <div class="row"><button id="timeline-add" class="btn" type="button">Add current phrase</button><button id="timeline-play" class="btn btn--start" type="button">Play timeline</button><button id="timeline-stop" class="btn" type="button" disabled>Stop chaining</button></div>
-        <p class="hint">Save your current phrase into a block, change the music, then add another. Each block plays its scene once. Empty blocks are skipped.</p>
+        <p class="hint">Save your current phrase into a block, change the music, then add another. Each block plays its scene once. Empty blocks are skipped. Drag the ⠿ handles to reorder blocks, or drag a saved scene onto a block. Arrow buttons and left/right keys on a block handle also move it.</p>
         <div id="timeline-blocks" class="timeline-blocks"></div>
         <p id="timeline-status" role="status" aria-live="polite">Add your first phrase to start arranging.</p>
         <details class="scene-library"><summary>Saved scenes, mixer &amp; more controls</summary>
           <div id="voice-mixer" class="voice-mixer"></div><div class="row"><span class="row__label">Starting sketches</span><div id="examples" class="row__items"></div></div>
           <div class="row"><button id="dj-drums" class="btn" type="button">Swap drums only</button><button id="dj-apply-swing" class="btn" type="button">Apply swing</button><button id="dj-down" class="btn" type="button">Transpose −1</button><button id="dj-up" class="btn" type="button">Transpose +1</button><button id="dj-breakdown" class="btn" type="button">Drum breakdown</button></div>
           <label class="check"><input id="dj-keep-tempo" type="checkbox" checked /> Keep current tempo when launching scenes or playing the timeline</label>
-          <p class="hint">Manual phrase changes stop timeline chaining. Scene slots hold music, tempo and swing; effects and visual training are separate. Style sketches use authored rules, not learned AI.</p>
+          <p class="hint">Manual phrase changes stop timeline chaining. Scene slots hold music, tempo, swing and a vocal take with its FX; synth effects and visual training are separate. Style sketches use authored rules, not learned AI.</p>
           <div id="dj-scenes" class="scene-grid"></div>
-          <details><summary>Keep your set</summary><p>Set exports include saved scenes and your block order, not effects, visual libraries or audio recordings. Each visitor has a separate local set. Export to move it between browsers or keep a backup.</p><div class="row"><button id="dj-export" class="btn" type="button">Export set</button><label>Import set<input id="dj-import" type="file" accept=".json,application/json" /></label></div></details>
+          <details><summary>Keep your set</summary><p>Set exports include saved scenes, block order and attached vocal recordings with vocal FX. Synth effects and visual libraries are separate. Each visitor has a separate local set. Export to move it between browsers or keep a backup.</p><div class="row"><button id="dj-export" class="btn" type="button">Export set</button><label>Import set<input id="dj-import" type="file" accept=".json,application/json" /></label></div></details>
         </details>
       </section>
       <section class="teaching panel" aria-label="Teach your visual instrument">
@@ -208,7 +226,7 @@
       </aside>
       <footer class="colophon">
         <p>
-          After this page loads, the instrument runs in this tab. Sounds are synthesised locally; your patterns and visual examples are not uploaded. The optional visual model learns only from examples you teach or import. Sound-model training and neural audio are not implemented yet. Export your music project and visual library separately. Independent work by Suzy Easton; Basecamp is credited as the residency, not a sponsor.
+          After this page loads, the instrument runs in this tab. Synth sounds and vocal recordings stay in this tab; your patterns, microphone audio and visual examples are not uploaded. The optional visual model learns only from examples you teach or import. Sound-model training and neural audio are not implemented yet. Export your music project and visual library separately. Independent work by Suzy Easton; Basecamp is credited as the residency, not a sponsor.
         </p>
       </footer>
     </div>

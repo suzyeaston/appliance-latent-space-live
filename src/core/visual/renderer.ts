@@ -34,6 +34,8 @@ export interface VisualNote {
   /** Duration in steps, which is what the horizontal length is drawn from. */
   steps: number;
   totalSteps: number;
+  /** Waveform identity, distinct from pitch and loudness. */
+  wave?: string;
 }
 
 export interface TimelineAnchor {
@@ -47,6 +49,7 @@ export interface TimelineAnchor {
 export interface VisualizerOptions {
   now: () => number;
   energy: () => number;
+  timbre?: () => { brightness: number; edge: number };
 }
 
 const PITCH_LOW = 24;
@@ -131,6 +134,11 @@ export class Visualizer {
   private height = 0;
   private dpr = 1;
   private smoothedEnergy = 0;
+  private gesturePoint: { x: number; y: number } | null = null;
+  private timbre = { brightness: 0, edge: 0 };
+  private readonly readTimbre: () => { brightness: number; edge: number };
+
+  setGesture(point: { x: number; y: number } | null): void { this.gesturePoint = point; }
 
   constructor(canvas: HTMLCanvasElement, options: VisualizerOptions) {
     this.canvas = canvas;
@@ -139,6 +147,7 @@ export class Visualizer {
     this.ctx = ctx;
     this.now = options.now;
     this.energy = options.energy;
+    this.readTimbre = options.timbre ?? (() => ({ brightness: 0, edge: 0 }));
     this.resize();
   }
 
@@ -210,6 +219,9 @@ export class Visualizer {
     const ctx = this.ctx;
     const now = this.now();
     const raw = this.energy();
+    const spectrum = this.readTimbre();
+    this.timbre.brightness += (spectrum.brightness - this.timbre.brightness) * 0.2;
+    this.timbre.edge += (spectrum.edge - this.timbre.edge) * 0.2;
     this.smoothedEnergy = this.smoothedEnergy * 0.8 + raw * 0.2;
     const energy = this.smoothedEnergy;
 
@@ -233,6 +245,7 @@ export class Visualizer {
 
     if (phase !== null && this.style.orbit < 0.15) this.drawPlayhead(phase, energy);
     this.drawImperfection(now, energy);
+    this.drawTimbre(energy);
   }
 
   /** Geometry follows actual scheduled notes. Learned style changes the drawing parameters. */
@@ -260,7 +273,7 @@ export class Visualizer {
       const blend = this.style.orbit;
       const x = linearX * (1 - blend) + orbitX * blend;
       const y = linearY * (1 - blend) + orbitY * blend;
-      const hue = (this.style.hue + note.voice * 28) % 360;
+      const hue = (this.style.hue + note.voice * 28 + waveHue(note.wave)) % 360;
       const alpha = fade * (.20 + note.velocity * .45) * (.25 + this.intensity * .75);
       ctx.strokeStyle = `hsla(${hue}, 85%, 72%, ${alpha * .5})`;
       if (previous) { ctx.beginPath(); ctx.moveTo(previous.x, previous.y); ctx.quadraticCurveTo(cx, cy, x, y); ctx.stroke(); }
@@ -313,7 +326,7 @@ export class Visualizer {
     const x0 = note.loopStep * stepWidth;
     const fullWidth = Math.max(stepWidth * 0.5, note.steps * stepWidth);
     const drawnWidth = Math.max(2, fullWidth * progress);
-    const hue = (this.style.hue + note.voice * 28) % 360;
+    const hue = (this.style.hue + note.voice * 28 + waveHue(note.wave)) % 360;
     const alpha = (0.32 + note.velocity * 0.5) * (0.55 + this.intensity * 0.45);
     const glow = 0.5 + energy * 0.5;
 
@@ -412,4 +425,31 @@ export class Visualizer {
       this.notes = this.notes.filter((note) => note.time + note.duration > cutoff);
     }
   }
+
+  private drawTimbre(energy: number): void {
+    const ctx = this.ctx;
+    ctx.save();
+    const hue = (this.style.hue + this.timbre.brightness * 180) % 360;
+    ctx.strokeStyle = `hsla(${hue},85%,70%,${0.15 + energy * 0.6})`;
+    ctx.lineWidth = 2;
+    const cx = this.width / 2, cy = this.height / 2;
+    const base = Math.min(this.width, this.height) * 0.32;
+    ctx.beginPath();
+    for (let i = 0; i <= 96; i++) {
+      const angle = i / 96 * Math.PI * 2;
+      const radius = base * (1 + Math.sin(angle * 12) * this.timbre.edge * 0.25);
+      const x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    if (this.gesturePoint) {
+      const x = this.gesturePoint.x * this.width, y = this.gesturePoint.y * this.height;
+      ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(x,y,12,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+export function waveHue(wave?: string): number {
+  return ({ sine: 0, triangle: 25, saw: 65, square: 110 } as Record<string, number>)[wave ?? 'sine'] ?? 0;
 }

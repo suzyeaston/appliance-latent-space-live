@@ -1,0 +1,125 @@
+/** Real Chromium pointer, microphone/MediaRecorder, persistence and scene playback checks. */
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import puppeteer from 'puppeteer-core';
+import { chromePath, browserArgs } from './browser.mjs';
+
+const base = process.env.APP_URL || 'http://127.0.0.1:4173/';
+const temporary = mkdtempSync(join(tmpdir(),'als-performance-'));
+const mic = join(temporary,'microphone.wav');
+const rate = 48000, count = rate * 3;
+const wav = Buffer.alloc(44 + count*2);
+wav.write('RIFF',0); wav.writeUInt32LE(wav.length-8,4); wav.write('WAVEfmt ',8);
+wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);
+wav.writeUInt32LE(rate,24);wav.writeUInt32LE(rate*2,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);
+wav.write('data',36);wav.writeUInt32LE(count*2,40);
+for(let i=0;i<count;i++)wav.writeInt16LE(Math.round(Math.sin(i/rate*Math.PI*440)*6000),44+i*2);
+writeFileSync(mic,wav);
+const browser = await puppeteer.launch({executablePath:chromePath(),headless:true,
+  args:[...browserArgs(),'--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream',`--use-file-for-fake-audio-capture=${mic}`]});
+const page = await browser.newPage();await page.setViewport({width:1440,height:1100});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function drag(from,to) {
+  const a=await page.$eval(from,e=>{e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};});
+  await page.mouse.move(a.x,a.y);await page.mouse.down();
+  const b=await page.$eval(to,e=>{e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};});
+  await page.mouse.move(b.x,b.y,{steps:12});await page.mouse.up();
+}
+try {
+  await page.goto(base,{waitUntil:'networkidle0'});
+  assert.equal(await page.evaluate(()=>window.applianceApp.debugState().contextState),'none');
+  await page.click('#stage-write');
+  const rect=await page.$eval('#stage',e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};});
+  await page.mouse.move(rect.x+rect.w*.2,rect.y+rect.h*.8);await page.mouse.down();await wait(100);
+  await page.mouse.move(rect.x+rect.w*.8,rect.y+rect.h*.2,{steps:10});await wait(180);
+  assert.ok(await page.evaluate(()=>window.applianceApp.debugState().activeNotes)>0);
+  const dark=await page.$eval('[data-control="browning"]',e=>e.value);
+  assert.ok(Number(dark)<.3,'drag changes actual synth timbre controls');
+  await page.mouse.up();await wait(180);
+  assert.match(await page.$eval('#editor',e=>e.value),/voice visual tone/);
+  assert.equal(await page.evaluate(()=>window.applianceApp.debugState().activeNotes),0,'released gesture is silent');
+  console.log('ok pointer gesture plays, changes timbre, writes a phrase and releases');
+  await page.click('#timeline-add');
+  await page.click('#vocal-record');await page.waitForFunction(()=>document.querySelector('#vocal-status').textContent.startsWith('Recording…'));
+  await wait(1100);await page.click('#vocal-stop');
+  await page.waitForFunction(()=>!document.querySelector('#vocal-preview').disabled);
+  await page.$eval('#vocal-echo',e=>{e.value='.65';e.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.$eval('#vocal-drive',e=>{e.value='.3';e.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.select('#vocal-scene','0');await page.click('#vocal-attach');
+  const first=await page.evaluate(()=>JSON.parse(localStorage.getItem('als-dj-set-v1')));
+  assert.equal(first.version,3);assert.ok(first.scenes[0].vocal.samples.length>1000);
+  assert.equal(first.scenes[0].vocal.fx.echo,.65);assert.equal(first.scenes[0].vocal.fx.drive,.3);
+  console.log('ok real MediaRecorder take is saved to a scene with vocal FX');
+  await page.click('#vocal-preview');await wait(200);
+  assert.ok(await page.evaluate(()=>window.applianceApp.debugState().activeNotes)>0);
+  await page.click('#kill');await wait(100);
+  assert.equal(await page.evaluate(()=>window.applianceApp.debugState().activeNotes),0);
+  await page.click('#vocal-record');await page.waitForFunction(()=>document.querySelector('#vocal-status').textContent.startsWith('Recording…'));
+  await page.click('#kill');await wait(200);
+  assert.equal(await page.$eval('#vocal-record',e=>e.disabled),false);
+  assert.equal(await page.$eval('#vocal-take',e=>e.textContent.includes('Vocal take')),true);
+  console.log('ok preview and Kill stop vocals, FX tails and microphone recording');
+  await page.click('#timeline-add');
+  await drag('[data-block-index="0"] .drag-handle','[data-block-index="1"]');
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('als-dj-set-v1')).blocks.slice(0,2)),[1,0]);
+  await page.click('[aria-label="Move block 2 left"]');
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('als-dj-set-v1')).blocks.slice(0,2)),[0,1]);
+  await page.$eval('.scene-library',e=>e.open=true);
+  await drag('[data-scene-index="0"] .drag-handle','[data-block-index="2"]');
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('als-dj-set-v1')).blocks[2]),0);
+  await drag('[data-scene-index="0"] .drag-handle','[data-scene-index="1"]');
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('als-dj-set-v1')).blocks[2]),1,'scene swap keeps references');
+  console.log('ok block dragging, arrow moves, scene assignment and scene-slot swaps');
+  const saved=await page.evaluate(()=>localStorage.getItem('als-dj-set-v1'));
+  await page.reload({waitUntil:'networkidle0'});
+  assert.equal(await page.evaluate(()=>localStorage.getItem('als-dj-set-v1')),saved);
+  await page.click('#timeline-play');await wait(350);
+  assert.ok(await page.evaluate(()=>window.applianceApp.debugState().vocal));
+  assert.ok(await page.evaluate(()=>window.applianceApp.debugState().activeNotes)>0);
+  await page.click('#kill');
+  console.log('ok saved vocal scenes restore and play through the timeline');
+  await page.$eval('.scene-library',e=>e.open=true);
+  await page.$eval('#dj-export',e=>e.closest('details').open=true);
+  await page.evaluate(()=>{const create=URL.createObjectURL.bind(URL);URL.createObjectURL=blob=>{window.exportedSet=blob;return create(blob);};});
+  await page.click('#dj-export');
+  const exported=await page.evaluate(async()=>JSON.parse(await window.exportedSet.text()));
+  assert.equal(exported.version,3);assert.deepEqual(exported,JSON.parse(saved));
+  const setFile=join(temporary,'set.json');writeFileSync(setFile,JSON.stringify(exported));
+  const input=await page.$('#dj-import');await input.uploadFile(setFile);
+  await page.waitForFunction(()=>document.querySelector('#dj-status').textContent.includes('Set imported'));
+  assert.equal(await page.evaluate(()=>localStorage.getItem('als-dj-set-v1')),saved);
+  console.log('ok exported sets include recordings and FX, and import without losing them');
+  // Trigger actual pointer events through Chromium's touch input, not a synthetic DOM event.
+  await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});
+  await page.$eval('[data-block-index="0"] .drag-handle',e=>e.scrollIntoView({block:'center'}));
+  const touchA=await page.$eval('[data-block-index="0"] .drag-handle',e=>{const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};});
+  const touchB=await page.$eval('[data-block-index="1"] .drag-handle',e=>{const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};});
+  const client=await page.createCDPSession();
+  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchA]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[touchB]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  assert.notEqual(await page.evaluate(()=>localStorage.getItem('als-dj-set-v1')),saved);
+  console.log('ok timeline handles support real touch dragging');
+  // Microphone denial is recoverable and does not erase a previous take.
+  await page.evaluate(()=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Denied','NotAllowedError');};});
+  await page.click('#vocal-record');await wait(150);
+  assert.match(await page.$eval('#vocal-status',e=>e.textContent),/denied|blocked/);
+  assert.equal(await page.$eval('#vocal-record',e=>e.disabled),false);
+  assert.ok(await page.evaluate(()=>window.applianceApp.debugState().vocal));
+  assert.deepEqual(errors,[]);
+  console.log('ok permission denial preserves the previous take and enables retry');
+  if(base.includes('127.0.0.1')) {
+    await page.setViewport({width:1440,height:1100});
+    await page.evaluate(url=>{const frame=document.createElement('iframe');frame.id='blocked-microphone';frame.src=url.replace('127.0.0.1','localhost');frame.allow='autoplay';frame.style='width:1200px;height:1000px';document.body.append(frame);},base);
+    const frameHandle=await page.$('#blocked-microphone'),frame=await frameHandle.contentFrame();
+    await frame.waitForFunction(()=>window.applianceApp);
+    assert.equal(await frame.evaluate(()=>document.featurePolicy.allowsFeature('microphone')),false);
+    await frame.$eval('#vocal-record',e=>e.click());
+    await frame.waitForFunction(()=>document.querySelector('#vocal-status').textContent.includes('iframe needs'));
+    assert.equal(await frame.$eval('#vocal-record',e=>e.disabled),false);
+    console.log('ok cross-origin embeds without microphone permission give actionable guidance');
+  }
+} finally {await browser.close();rmSync(temporary,{recursive:true,force:true});}

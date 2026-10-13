@@ -26,12 +26,14 @@ replacing a saved scene stop chaining. Play timeline releases Freeze. Starting a
 new arrangement while it plays restarts the chosen sequence on the next bar boundary.
 Scene tempo is preserved unless Keep current tempo is enabled in advanced controls.
 
-Set exports are version 2 and include eight block assignments. Version 1 scene files
-still import; their timeline begins empty. Sets remain in local browser storage with
-an explicit export for backups. Visual libraries and effects are separate. The
+Set exports are version 3 and include eight block assignments plus scene vocal takes and their FX. Version 1 and 2 scene files
+still import; version 1 timelines begin empty. Sets remain in local browser storage with
+an explicit export for backups. Visual libraries and synth effects are separate; vocal FX travel with their scene. The
 arrangement does not add neural sound generation or pretrained musical styles.
 
 Validation: 100 unit tests and production build. Coverage includes correct block
 length, skipping empty blocks, looping, cueing, snapshots, old file compatibility,
 scene starts at bar one, and actual sequencer note order/timing. DOM order and unique
 control IDs checked. Browser rendering and listening still require the Mac preview.
+
+Block handles support mouse/touch dragging and left/right keys. Arrow buttons also reorder blocks, including empty ones. Dropping a saved scene on a block assigns it; swapping scene slots remaps references so existing block music is preserved. Editing the order stops chaining until Play timeline is pressed again.

@@ -195,5 +195,34 @@ export async function runAudioChecks(): Promise<AudioReport> {
     `dry ${rms(dry, 0.1, 1.6, SAMPLE_RATE).toFixed(4)} dark ${rms(dark, 0.1, 1.6, SAMPLE_RATE).toFixed(4)}`,
   );
 
+  const gesture = async (timbre: number): Promise<Float32Array> => {
+    const context = new OfflineAudioContext(1,SAMPLE_RATE,SAMPLE_RATE);
+    const engine = new AudioEngine(context); engine.setMasterVolume(.7); engine.setBrowning(0);
+    engine.beginGesture(60,timbre);
+    const buffer = await context.startRendering(); engine.dispose(); return buffer.getChannelData(0);
+  };
+  const softGesture = await gesture(0), brightGesture = await gesture(1);
+  let difference = 0;
+  for (let i = 10000; i < 20000; i++) difference += Math.abs(softGesture[i]! - brightGesture[i]!);
+  record('visual gestures produce distinct audible timbres',difference/10000>.005,
+    `mean waveform difference ${(difference/10000).toFixed(5)}`);
+
+  const vocal = async (echo: number, drive = 0, kill = false): Promise<Float32Array> => {
+    const context = new OfflineAudioContext(1,SAMPLE_RATE*2,SAMPLE_RATE);
+    const engine = new AudioEngine(context); engine.setMasterVolume(.7);
+    const take = context.createBuffer(1,Math.floor(SAMPLE_RATE*.15),SAMPLE_RATE);
+    const data = take.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.sin(i*2*Math.PI*220/SAMPLE_RATE)*.4;
+    engine.playVocal(take,.1,{level:.8,tone:.8,drive,echo});
+    if (kill) engine.kill();
+    const buffer = await context.startRendering(); engine.dispose(); return buffer.getChannelData(0);
+  };
+  const dryVocal = await vocal(0), wetVocal = await vocal(1,1), killedVocal = await vocal(1,1,true);
+  record('vocal takes sound at their scheduled phrase boundary',rms(dryVocal,.12,.22,SAMPLE_RATE)>.005 && rms(dryVocal,0,.08,SAMPLE_RATE)<.001,
+    `vocal rms ${rms(dryVocal,.12,.22,SAMPLE_RATE).toFixed(5)}`);
+  record('vocal echo creates a bounded audible tail',rms(wetVocal,.5,.8,SAMPLE_RATE)>.001 && rms(dryVocal,.5,.8,SAMPLE_RATE)<.001 && finite(wetVocal)&&peak(wetVocal)<1,
+    `dry tail ${rms(dryVocal,.5,.8,SAMPLE_RATE).toFixed(5)}, echo tail ${rms(wetVocal,.5,.8,SAMPLE_RATE).toFixed(5)}`);
+  record('Kill cancels vocal playback and echo',peak(killedVocal)<.001,`peak ${peak(killedVocal).toFixed(5)}`);
+
   return { ok: checks.every((check) => check.ok), checks };
 }

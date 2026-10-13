@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:audio": "node tests/audio/offline-render.mjs",
     "test:ui": "node tests/audio/ui-smoke.mjs",
+    "test:performance": "node tests/audio/performance-smoke.mjs",
     "deploy": "bash scripts/deploy.sh"
   },
   "devDependencies": {

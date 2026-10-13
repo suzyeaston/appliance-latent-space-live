@@ -1,9 +1,15 @@
 import { parsePattern } from '../pattern/parse';
-export interface TimelineScene { name:string; pattern:string }
+import type { VocalTake } from '../audio/vocals';
+export interface TimelineScene { name:string; pattern:string; vocal?: VocalTake | null }
 export type TimelineBlocks = Array<number|null>;
 export function readBlocks(value:unknown):TimelineBlocks {
   if(!Array.isArray(value)||value.length!==8||!value.every(v=>v===null||(Number.isInteger(v)&&v>=0&&v<4))) throw new Error('Timeline must have eight blocks referencing scenes 1–4 or empty.');
   return [...value];
+}
+export function moveBlock(blocks: TimelineBlocks, from: number, to: number): TimelineBlocks {
+  const result = readBlocks(blocks);
+  if (![from,to].every(n => Number.isInteger(n) && n >= 0 && n < 8)) throw new Error('Invalid block position.');
+  const [entry] = result.splice(from,1); result.splice(to,0,entry!); return result;
 }
 /** Snapshot a set when it starts. Advance only from the sequencer's bar boundary. */
 export class Timeline {
@@ -17,7 +23,7 @@ export class Timeline {
     this.sequence=readBlocks(blocks).flatMap((slot,block)=>{
       const scene=slot===null?null:scenes[slot];if(!scene)return [];
       const parsed=parsePattern(scene.pattern);if(!parsed.ok)throw new Error('A scene has invalid music.');
-      return [{block,scene:{...scene},bars:parsed.score.bars}];
+      return [{block,scene:structuredClone(scene),bars:parsed.score.bars}];
     });
     if(!this.sequence.length)throw new Error('Add your current phrase to a block first.');
     const found=this.sequence.findIndex(e=>e.block>=from);this.cursor=found<0?0:found;
@@ -29,7 +35,7 @@ export class Timeline {
     const entry=this.sequence[this.cursor]!;
     this.block=entry.block;this.remaining=entry.bars-1;
     this.cursor=(this.cursor+1)%this.sequence.length;
-    return {block:entry.block,scene:{...entry.scene}};
+    return {block:entry.block,scene:structuredClone(entry.scene)};
   }
   stop():void{this.active=false;this.block=null;this.remaining=0;}
 }
